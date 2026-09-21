@@ -1,21 +1,35 @@
 #include "settings/functions.h"
 #include "shader/blur.hpp"
 
-void c_gui::render()
+void c_gui::render_menu()
 {
 
 	gui->new_frame();
 	{
 		notify->setup_notify();
 
-		int primary_w = GetSystemMetrics(SM_CXSCREEN);
-		int primary_h = GetSystemMetrics(SM_CYSCREEN);
 		ImVec2 menu_size = SCALE(set->c_window.window_size);
-		gui->set_next_window_pos(ImVec2((primary_w - menu_size.x) * 0.5f, (primary_h - menu_size.y) * 0.5f), ImGuiCond_FirstUseEver);
+		gui->set_next_window_pos(ImVec2(0, 0));
 		gui->set_next_window_size(menu_size);
 
-		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags);
+		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 		{
+			// Native window dragging when clicking the 110px left sidebar or top 35px area
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+			{
+				ImVec2 mouse = ImGui::GetMousePos();
+				ImVec2 wpos = ImGui::GetWindowPos();
+				ImVec2 wsize = ImGui::GetWindowSize();
+				if ((mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + wsize.y) ||
+					(mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(35) && mouse.x >= wpos.x && mouse.x <= wpos.x + wsize.x))
+				{
+					if (g_hMenuWnd)
+					{
+						ReleaseCapture();
+						SendMessage(g_hMenuWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+					}
+				}
+			}
 			const ImVec2 pos = GetWindowPos();
 			const ImVec2 size = GetWindowSize();
 
@@ -511,16 +525,46 @@ void c_gui::render()
 		}
 		gui->end();
 
+		gui->water_mark("watermark", var->c_watermark.watermark_content, static_cast<watermark_position>(var->c_watermark.watermark_position), &var->c_watermark.watermark);
+
+	}
+	gui->end_frame();
+
+}
+
+void c_gui::render_selection()
+{
+
+	gui->new_frame();
+	{
 		gui->push_style_var(ImGuiStyleVar_WindowPadding, SCALE(15, 15));
 		gui->push_style_var(ImGuiStyleVar_ItemSpacing, SCALE(4, 0));
 		{
-			gui->set_next_window_pos(SCALE(20, 20), ImGuiCond_FirstUseEver);
-			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysAutoResize);
+			gui->set_next_window_pos(ImVec2(0, 0));
+			gui->set_next_window_size(SCALE(270, 260));
+			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
 			{
+				// Native window dragging: left-click on background or right-click anywhere in the selection window
+				if ((ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsAnyItemHovered()) || ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+				{
+					if (g_hSelectionWnd)
+					{
+						ReleaseCapture();
+						SendMessage(g_hSelectionWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+					}
+				}
+
 				const ImVec2 pos = GetWindowPos();
 				const ImVec2 size = GetWindowSize();
 
-				ImDrawList* draw_list = GetBackgroundDrawList();
+				ImDrawList* draw_list = GetWindowDrawList();
+
+				// Sleek dark frosted rounded pill backdrop for the 7 hexagons
+				draw->add_rect_filled(draw_list, pos, pos + size, gui->get_clr(clr->c_window.general_layout, 0.88f), SCALE(20.f));
+				draw->add_rect(draw_list, pos, pos + size, gui->get_clr(clr->c_window.general_stroke, 0.95f), SCALE(20.f));
+				draw->rect_filled_multi_color(draw_list, { pos.x + size.x / 4, pos.y }, { pos.x + 3 * size.x / 4, pos.y + 2 },
+					gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.8f),
+					gui->get_clr(clr->c_other_clr.accent_clr, 0.8f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
 				gui->set_cursor_pos_x(SCALE(54));
 				gui->begin_group();
@@ -563,10 +607,13 @@ void c_gui::render()
 			gui->end();
 		}
 		gui->pop_style_var(2);
-
-		gui->water_mark("watermark", var->c_watermark.watermark_content, static_cast<watermark_position>(var->c_watermark.watermark_position), &var->c_watermark.watermark);
-
 	}
 	gui->end_frame();
 
+}
+
+void c_gui::render()
+{
+	render_menu();
+	render_selection();
 }
