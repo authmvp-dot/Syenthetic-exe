@@ -52,8 +52,8 @@ void UpdateHudWindow(float framerate)
 {
     if (!g_hHudWnd || !IsWindow(g_hHudWnd)) return;
 
-    int width = 330;
-    int height = 36;
+    int width = 460;
+    int height = 32;
 
     HDC hdcScreen = GetDC(NULL);
     HDC hdcMem = CreateCompatibleDC(hdcScreen);
@@ -78,84 +78,147 @@ void UpdateHudWindow(float framerate)
         g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
         g.SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
 
-        // 1. Dark frosted pill background
-        Gdiplus::GraphicsPath path;
-        float r = 6.0f;
-        float d = r * 2.0f;
+        float c = 6.0f; // Chamfer cut size
         float w = (float)width - 1.0f;
         float h = (float)height - 1.0f;
-        path.AddArc(0.0f, 0.0f, d, d, 180.0f, 90.0f);
-        path.AddArc(w - d, 0.0f, d, d, 270.0f, 90.0f);
-        path.AddArc(w - d, h - d, d, d, 0.0f, 90.0f);
-        path.AddArc(0.0f, h - d, d, d, 90.0f, 90.0f);
+
+        // 1. Octagonal Chamfered Path
+        Gdiplus::GraphicsPath path;
+        path.AddLine(c, 0.0f, w - c, 0.0f);
+        path.AddLine(w - c, 0.0f, w, c);
+        path.AddLine(w, c, w, h - c);
+        path.AddLine(w, h - c, w - c, h);
+        path.AddLine(w - c, h, c, h);
+        path.AddLine(c, h, 0.0f, h - c);
+        path.AddLine(0.0f, h - c, 0.0f, c);
+        path.AddLine(0.0f, c, c, 0.0f);
         path.CloseFigure();
 
-        Gdiplus::SolidBrush bgBrush(Gdiplus::Color(235, 18, 18, 24));
+        // 2. Background: Deep obsidian black
+        Gdiplus::SolidBrush bgBrush(Gdiplus::Color(245, 12, 12, 16));
         g.FillPath(&bgBrush, &path);
 
-        // 2. Subtle border
-        Gdiplus::Pen borderPen(Gdiplus::Color(180, 50, 50, 68), 1.0f);
-        g.DrawPath(&borderPen, &path);
+        // 3. Base subtle outline
+        Gdiplus::Pen baseBorderPen(Gdiplus::Color(160, 42, 42, 54), 1.0f);
+        g.DrawPath(&baseBorderPen, &path);
 
-        // 3. Top accent glow line
-        Gdiplus::Pen topGlowPen(Gdiplus::Color(220, 155, 115, 255), 1.2f);
-        g.DrawLine(&topGlowPen, 12.0f, 1.0f, w - 12.0f, 1.0f);
+        // 4. Glowing Neon Accents:
+        // Left chamfers & left edge: Magenta / Neon Pink
+        Gdiplus::Pen pinkPen(Gdiplus::Color(255, 235, 45, 150), 1.6f);
+        g.DrawLine(&pinkPen, 0.0f, c, c, 0.0f);
+        g.DrawLine(&pinkPen, 0.0f, h - c, c, h);
+        g.DrawLine(&pinkPen, 0.0f, c, 0.0f, h - c);
 
-        // 4. Typography
-        Gdiplus::Font fontBrand(L"Segoe UI", 9.0f, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
-        Gdiplus::Font fontRegular(L"Segoe UI", 8.5f, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint);
+        // Right chamfers & right edge: Electric Blue / Purple
+        Gdiplus::Pen bluePen(Gdiplus::Color(255, 56, 175, 255), 1.6f);
+        g.DrawLine(&bluePen, w - c, h, w, h - c);
+        g.DrawLine(&bluePen, w - c, 0.0f, w, c);
+        g.DrawLine(&bluePen, w, c, w, h - c);
 
-        Gdiplus::SolidBrush brandBrush(Gdiplus::Color(255, 175, 135, 255));
-        Gdiplus::SolidBrush textBrush(Gdiplus::Color(230, 215, 215, 225));
-        Gdiplus::SolidBrush sepBrush(Gdiplus::Color(120, 85, 85, 105));
+        // 5. Brushes & Fonts
+        Gdiplus::Font fontBold(L"Segoe UI", 8.5f, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+        Gdiplus::Font fontBadge(L"Segoe UI", 7.0f, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
 
-        // Get current time
+        Gdiplus::SolidBrush whiteBrush(Gdiplus::Color(255, 240, 240, 245));
+        BYTE accR = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.x * 255), 0, 255);
+        BYTE accG = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.y * 255), 0, 255);
+        BYTE accB = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.z * 255), 0, 255);
+        Gdiplus::SolidBrush purpleBrush(Gdiplus::Color(255, accR, accG, accB));
+        Gdiplus::SolidBrush iconBrush(Gdiplus::Color(255, accR, accG, accB));
+        Gdiplus::Pen iconPen(Gdiplus::Color(255, accR, accG, accB), 1.4f);
+
+        Gdiplus::StringFormat fmt;
+        fmt.SetAlignment(Gdiplus::StringAlignmentNear);
+        fmt.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+
+        float curX = 13.0f;
+        float centerY = height * 0.5f;
+
+        // [Element 1] 2x2 Purple Grid Icon
+        g.FillRectangle(&iconBrush, curX, centerY - 4.5f, 4.2f, 4.2f);
+        g.FillRectangle(&iconBrush, curX + 5.6f, centerY - 4.5f, 4.2f, 4.2f);
+        g.FillRectangle(&iconBrush, curX, centerY + 1.2f, 4.2f, 4.2f);
+        g.FillRectangle(&iconBrush, curX + 5.6f, centerY + 1.2f, 4.2f, 4.2f);
+        curX += 9.8f + 8.0f;
+
+        // [Element 2] "Synthetic" (White) + " FREE" (Purple)
+        Gdiplus::RectF bound;
+        g.MeasureString(L"Synthetic", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(L"Synthetic", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        curX += bound.Width + 3.0f;
+
+        g.MeasureString(L"FREE", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(L"FREE", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &purpleBrush);
+        curX += bound.Width + 10.0f;
+
+        // [Element 3] "Beta" Pill Badge
+        float badgeW = 34.0f;
+        float badgeH = 15.0f;
+        float br = 3.5f;
+        Gdiplus::GraphicsPath badgePath;
+        badgePath.AddArc(curX, centerY - badgeH * 0.5f, br * 2, br * 2, 180, 90);
+        badgePath.AddArc(curX + badgeW - br * 2, centerY - badgeH * 0.5f, br * 2, br * 2, 270, 90);
+        badgePath.AddArc(curX + badgeW - br * 2, centerY + badgeH * 0.5f - br * 2, br * 2, br * 2, 0, 90);
+        badgePath.AddArc(curX, centerY + badgeH * 0.5f - br * 2, br * 2, br * 2, 90, 90);
+        badgePath.CloseFigure();
+
+        Gdiplus::SolidBrush badgeBg(Gdiplus::Color(170, 36, 22, 52));
+        g.FillPath(&badgeBg, &badgePath);
+        Gdiplus::Pen badgePen(Gdiplus::Color(190, 115, 60, 170), 1.0f);
+        g.DrawPath(&badgePen, &badgePath);
+
+        Gdiplus::SolidBrush badgeText(Gdiplus::Color(255, 185, 145, 235));
+        Gdiplus::StringFormat badgeFmt;
+        badgeFmt.SetAlignment(Gdiplus::StringAlignmentCenter);
+        badgeFmt.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+        g.DrawString(L"Beta", -1, &fontBadge, Gdiplus::RectF(curX, centerY - badgeH * 0.5f, badgeW, badgeH), &badgeFmt, &badgeText);
+        curX += badgeW + 14.0f;
+
+        // [Element 4] User Profile Icon + Name
+        g.DrawEllipse(&iconPen, curX + 2.0f, centerY - 5.5f, 5.0f, 5.0f);
+        g.DrawArc(&iconPen, curX, centerY + 0.5f, 9.0f, 6.0f, 180, 180);
+        curX += 9.0f + 6.0f;
+
+        char sysUser[128] = "User";
+        DWORD sysLen = sizeof(sysUser);
+        GetUserNameA(sysUser, &sysLen);
+        std::string dispUser = sysUser;
+        if (dispUser == "AsaadMamun97") dispUser = "Asaad";
+        if (dispUser.empty()) dispUser = "User";
+        std::wstring wuser(dispUser.begin(), dispUser.end());
+
+        g.MeasureString(wuser.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(wuser.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        curX += bound.Width + 14.0f;
+
+        // [Element 5] 3-Bar Chart Icon + Dynamic FPS
+        g.FillRectangle(&purpleBrush, curX, centerY - 1.0f, 2.2f, 6.5f);
+        g.FillRectangle(&purpleBrush, curX + 3.4f, centerY - 5.5f, 2.2f, 11.0f);
+        g.FillRectangle(&purpleBrush, curX + 6.8f, centerY - 3.5f, 2.2f, 9.0f);
+        curX += 9.0f + 6.0f;
+
+        int fps_val = (int)roundf(framerate > 0.f ? framerate : 144.f);
+        std::wstring wfps = std::to_wstring(fps_val) + L" FPS";
+        g.MeasureString(wfps.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(wfps.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        curX += bound.Width + 14.0f;
+
+        // [Element 6] Clock Icon + Time
+        g.DrawEllipse(&iconPen, curX, centerY - 5.0f, 10.0f, 10.0f);
+        g.DrawLine(&iconPen, curX + 5.0f, centerY, curX + 5.0f, centerY - 3.2f);
+        g.DrawLine(&iconPen, curX + 5.0f, centerY, curX + 7.2f, centerY);
+        curX += 10.0f + 6.0f;
+
         time_t rawtime = time(nullptr);
         struct tm timeinfo;
         localtime_s(&timeinfo, &rawtime);
-        char time_str[16];
-        strftime(time_str, sizeof(time_str), "%I:%M%p", &timeinfo);
-        wchar_t wtime[16];
-        MultiByteToWideChar(CP_ACP, 0, time_str, -1, wtime, 16);
+        char time_str[32];
+        strftime(time_str, sizeof(time_str), "%H:%M:%S", &timeinfo);
+        wchar_t wtime[32];
+        MultiByteToWideChar(CP_ACP, 0, time_str, -1, wtime, 32);
 
-        int fps_val = (int)roundf(framerate > 0.f ? framerate : 144.f);
-        std::wstring wfps = std::to_wstring(fps_val) + L"FPS";
-
-        struct Segment {
-            std::wstring text;
-            bool is_brand;
-        };
-        std::vector<Segment> segs = {
-            { L"SYNTHETIC", true },
-            { L"Server", false },
-            { wfps, false },
-            { L"64PING", false },
-            { wtime, false }
-        };
-
-        float curX = 14.0f;
-        float textY = (height - 18) * 0.5f;
-
-        Gdiplus::StringFormat format;
-        format.SetAlignment(Gdiplus::StringAlignmentNear);
-        format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
-
-        for (size_t i = 0; i < segs.size(); i++)
-        {
-            Gdiplus::RectF bound;
-            g.MeasureString(segs[i].text.c_str(), -1, segs[i].is_brand ? &fontBrand : &fontRegular, Gdiplus::PointF(0, 0), &bound);
-
-            Gdiplus::RectF layoutRect(curX, textY, bound.Width + 2.0f, 18.0f);
-            g.DrawString(segs[i].text.c_str(), -1, segs[i].is_brand ? &fontBrand : &fontRegular, layoutRect, &format, segs[i].is_brand ? &brandBrush : &textBrush);
-            curX += bound.Width + 6.0f;
-
-            if (i + 1 < segs.size())
-            {
-                Gdiplus::RectF sepRect(curX, textY - 1.0f, 10.0f, 18.0f);
-                g.DrawString(L"|", -1, &fontRegular, sepRect, &format, &sepBrush);
-                curX += 11.0f;
-            }
-        }
+        g.MeasureString(wtime, -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(wtime, -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
     }
 
     POINT ptSrc = { 0, 0 };
@@ -216,8 +279,8 @@ int MainApp()
     WNDCLASSEXW wcHud = { sizeof(wcHud), CS_CLASSDC, HudWndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, LoadCursor(0, IDC_ARROW), nullptr, nullptr, L"SyntheticHudClass", nullptr };
     ::RegisterClassExW(&wcHud);
 
-    int hud_w = 330;
-    int hud_h = 36;
+    int hud_w = 460;
+    int hud_h = 32;
     int hud_x = primary_w - hud_w - 30;
     int hud_y = 25;
 
@@ -364,6 +427,15 @@ int MainApp()
         ImGui_ImplWin32_NewFrame();
 
         gui->render();
+
+        // Dynamically adjust window brightness/alpha based on brightness slider (var->c_glow.power)
+        static int last_power = -1;
+        if (last_power != var->c_glow.power)
+        {
+            last_power = var->c_glow.power;
+            BYTE alpha_byte = (BYTE)ImClamp(70 + (var->c_glow.power * 185 / 100), 70, 255);
+            SetLayeredWindowAttributes(g_hwnd, RGB(0, 0, 0), alpha_byte, LWA_ALPHA);
+        }
 
         const float clear_color[4] = { 0.f, 0.f, 0.f, 0.f };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);

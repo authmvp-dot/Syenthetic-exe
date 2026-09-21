@@ -443,7 +443,15 @@ bool c_widget::color_edit(std::string_view label, float col[4], ImGuiColorEditFl
     {
         const ImVec4 col_v4(col[0], col[1], col[2], alpha ? col[3] : 1.0f);
         if (color_button(label.data(), col_v4, state->active))
+        {
             g.ColorPickerRef = col_v4;
+            state->active = !state->active;
+        }
+
+        if (state->active && (g.IO.MouseClicked[0] || g.IO.MouseClicked[1]) && !state->hovered && !IsItemHovered())
+        {
+            state->active = false;
+        }
 
         state->alpha = ImClamp(state->alpha + (8.f * g.IO.DeltaTime * (state->active ? 1.f : -1.f)), 0.f, 1.f);
 
@@ -453,17 +461,16 @@ bool c_widget::color_edit(std::string_view label, float col[4], ImGuiColorEditFl
             state->alpha = 0.f;
         }
 
-        //SetNextWindowSize(SCALE(170, flags & ImGuiColorEditFlags_AlphaBar ? 272 : 254));
-        SetNextWindowPos(g.LastItemData.Rect.GetTL());
-        gui->push_style_var(ImGuiStyleVar_Alpha, state->alpha);
-        gui->push_style_var(ImGuiStyleVar_WindowBorderSize, 1.f);
-        gui->push_style_var(ImGuiStyleVar_WindowRounding, SCALE(set->c_child.rounding));
-
-        gui->push_style_color(ImGuiCol_PopupBg, gui->get_clr(clr->c_child.layout));
-        gui->push_style_color(ImGuiCol_Border, gui->get_clr(clr->c_child.stroke));
-
-        if (state->alpha >= 0.01f);
+        if (state->alpha >= 0.01f)
         {
+            SetNextWindowPos(g.LastItemData.Rect.GetTL());
+            gui->push_style_var(ImGuiStyleVar_Alpha, state->alpha);
+            gui->push_style_var(ImGuiStyleVar_WindowBorderSize, 1.f);
+            gui->push_style_var(ImGuiStyleVar_WindowRounding, SCALE(set->c_child.rounding));
+
+            gui->push_style_color(ImGuiCol_PopupBg, gui->get_clr(clr->c_child.layout));
+            gui->push_style_color(ImGuiCol_Border, gui->get_clr(clr->c_child.stroke));
+
             gui->begin((std::stringstream{} << "picker_window" << GetID(label.data())).str(), NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_AlwaysAutoResize);
             {
                 if (state->active)
@@ -482,9 +489,10 @@ bool c_widget::color_edit(std::string_view label, float col[4], ImGuiColorEditFl
 
             }
             gui->end();
+
+            gui->pop_style_var(3);
+            gui->pop_style_color(2);
         }
-        gui->pop_style_var(3);
-        gui->pop_style_color(2);
     }
 
     // Convert back

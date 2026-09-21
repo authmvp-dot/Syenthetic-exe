@@ -92,9 +92,11 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
     state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
     state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
 
-    widget->begin_popup((std::stringstream{} << id << "keybind").str().c_str(), 170, {w - SCALE(92), SCALE(-40)});
-    {
+    ImRect gear_rect(clickable_rect.Max - ImVec2(SCALE(72), clickable_rect.GetHeight()), clickable_rect.Max - ImVec2(SCALE(46), 0));
+    bool clicking_gear = gear_rect.Contains(g.IO.MousePos);
 
+    if (widget->begin_popup((std::stringstream{} << id << "keybind").str().c_str(), 170, {w - SCALE(92), SCALE(-40)}))
+    {
         widget->keybind("keybind", key);
 
         widget->separator();
@@ -109,10 +111,10 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
 
         widget->checkbox("Show binds", show_in_binds);
 
+        widget->end_popup();
     }
-    widget->end_popup();
 
-    if (pressed)
+    if (pressed && !clicking_gear)
     {
         *callback = !(*callback);
         MarkItemEdited(id);
@@ -121,7 +123,8 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max, gui->get_clr(state->background), SCALE(100.f));
     draw->add_circle_filled(window->DrawList, { rect.Min.x + SCALE(state->circle_offset), rect.GetCenter().y }, SCALE(6.f), gui->get_clr(state->circle), SCALE(100.f));
 
-    draw->render_text(window->DrawList, set->c_font.icon[1], clickable_rect.Min, clickable_rect.Max - ImVec2(SCALE(60), 0), gui->get_clr(clr->c_element.popup_icon), "E", NULL, NULL, {1.0, 0.5});
+    ImVec4 gear_col = clicking_gear ? clr->c_other_clr.accent_clr : clr->c_element.popup_icon;
+    draw->render_text(window->DrawList, set->c_font.icon[1], clickable_rect.Min, clickable_rect.Max - ImVec2(SCALE(60), 0), gui->get_clr(gear_col), "E", NULL, NULL, {1.0, 0.5});
     draw->render_text(window->DrawList, set->c_font.inter_medium[0], clickable_rect.Min, clickable_rect.Max, gui->get_clr(state->text_colored), label.data(), NULL, NULL, { 0.0, 0.5 });
 
     return pressed;
@@ -167,11 +170,14 @@ bool c_widget::checkbox_with_color(std::string_view label, bool* callback, float
     state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
     state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
 
+    ImRect color_btn_rect(clickable_rect.Max - SCALE(82, 26), clickable_rect.Max - SCALE(58, 4));
+    bool clicking_color = color_btn_rect.Contains(g.IO.MousePos);
+
     SetCursorScreenPos(clickable_rect.Max - SCALE(78, 24));
     widget->color_edit((std::stringstream{} << id << "colorpicker").str(), col, alpha ? ImGuiColorEditFlags_AlphaBar : 0);
     SetCursorScreenPos(stored_pos);
 
-    if (pressed)
+    if (pressed && !clicking_color)
     {
         *callback = !(*callback);
         MarkItemEdited(id);

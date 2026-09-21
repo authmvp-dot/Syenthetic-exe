@@ -111,16 +111,16 @@ public:
 		ImVec4 checkbox_active = ImColor(37, 36, 53, 255);
 		ImVec4 separator = ImColor(19, 18, 26, 255);
 
-		ImVec4 layout = ImColor(21, 21, 29, 255);
-		ImVec4 circle = ImColor(41, 41, 53, 255);
+		ImVec4 layout = ImColor(26, 26, 36, 255);
+		ImVec4 circle = ImColor(120, 120, 145, 255);
 
 	} c_element;
 
 	struct
 	{
 		ImVec4 text_active = ImColor(255, 255, 255, 255);
-		ImVec4 text_hov = ImColor(104, 104, 120, 255);
-		ImVec4 text = ImColor(49, 49, 61, 255);
+		ImVec4 text_hov = ImColor(195, 195, 215, 255);
+		ImVec4 text = ImColor(140, 140, 160, 255);
 
 	} c_text;
 

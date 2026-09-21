@@ -117,7 +117,8 @@ void c_gui::render()
 				}
 
 				// Tab icon
-				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(clr->c_text.text, clr->c_other_clr.accent_clr, st->anim);
+				ImVec4 inactive_icon = ImLerp(ImVec4(0.62f, 0.62f, 0.74f, 1.0f), ImVec4(1.f, 1.f, 1.f, 1.f), st->hover);
+				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(inactive_icon, ImVec4(1.f, 1.f, 1.f, 1.f), st->anim);
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
 
 				if (hovered)
@@ -229,14 +230,6 @@ void c_gui::render()
 							widget->separator();
 
 							widget->slider_float("Yaw", &var->c_settings.yaw, 0.f, 1.f, 0.1f, "%.3f");
-
-							widget->separator();
-
-							widget->checkbox_with_key("Static point scale", &var->c_settings.point_scale, &var->c_settings.point_key, &var->c_settings.point_holding, &var->c_settings.point_value, &var->c_settings.point_show_binds);
-
-							widget->separator();
-
-							widget->checkbox("Head safety if lethal", &var->c_settings.head_safety);
 						}
 						gui->end_child();
 					}
@@ -442,24 +435,19 @@ void c_gui::render()
 				{
 					gui->begin_group();
 					{
-						gui->begin_child("oth");
+						gui->begin_child("theme");
 						{
+							static bool theme_color_enabled = true;
+							widget->checkbox_with_color("UI Theme Color", &theme_color_enabled, (float*)&clr->c_other_clr.accent_clr, false);
+
+							widget->separator();
+
+							widget->slider_int("UI Brightness", &var->c_glow.power, 0, 100, 1, "%d%%");
+
+							widget->separator();
+
 							static char buf[128] = "Default User";
 							widget->text_field("Custom Tag", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
-
-							widget->separator();
-
-							widget->button("Button", { GetContentRegionAvail().x, SCALE(35) });
-
-							widget->separator();
-
-							const float width = GetContentRegionAvail().x;
-
-							widget->button("Press", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
-
-							gui->sameline();
-
-							widget->button("Click", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
 						}
 						gui->end_child();
 					}
@@ -476,6 +464,24 @@ void c_gui::render()
 							if (var->c_dpi.dpi != var->c_dpi.dpi_saved / 100.f && IsMouseReleased(ImGuiMouseButton_Left)) {
 								notify->add_notify("You have successfully set the menu size", 15, static_cast<notify_position>(var->c_notify.notify_position));
 								var->c_dpi.dpi_changed = true;
+							}
+
+							widget->separator();
+
+							const float width = GetContentRegionAvail().x;
+
+							widget->button("Reset Color", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+							if (ImGui::IsItemClicked())
+							{
+								clr->c_other_clr.accent_clr = ImColor(142, 132, 255, 255);
+							}
+
+							gui->sameline();
+
+							widget->button("Max Bright", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+							if (ImGui::IsItemClicked())
+							{
+								var->c_glow.power = 100;
 							}
 						}
 						gui->end_child();

@@ -25,9 +25,20 @@ bool c_widget::begin_popup(std::string_view name, float size_w, const ImVec2& po
     };
 
     popup_state* state = gui->anim_container(&state, id);
-    if (IsItemHovered() && g.IO.MouseClicked[1] || state->window_opened && (g.IO.MouseClicked[0] || g.IO.MouseClicked[1]) && !state->hovered) state->window_opened = !state->window_opened;
 
-    state->alpha_popup = ImClamp(state->alpha_popup + (gui->fixed_speed(5.f) * (state->window_opened ? 1.f : -1.f)), 0.f, 1.f);
+    ImRect gear_rect(g.LastItemData.Rect.Max - ImVec2(SCALE(72), g.LastItemData.Rect.GetHeight()), g.LastItemData.Rect.Max - ImVec2(SCALE(46), 0));
+    bool gear_hovered = IsMouseHoveringRect(gear_rect.Min, gear_rect.Max);
+
+    if ((IsItemHovered() && g.IO.MouseClicked[1]) || (gear_hovered && g.IO.MouseClicked[0]) || (state->window_opened && (g.IO.MouseClicked[0] || g.IO.MouseClicked[1]) && !state->hovered && !gear_hovered))
+        state->window_opened = !state->window_opened;
+
+    state->alpha_popup = ImClamp(state->alpha_popup + (gui->fixed_speed(8.f) * (state->window_opened ? 1.f : -1.f)), 0.f, 1.f);
+
+    if (!state->window_opened && state->alpha_popup < 0.01f)
+    {
+        state->alpha_popup = 0.f;
+        return false;
+    }
 
     gui->push_style_var(ImGuiStyleVar_Alpha, state->alpha_popup);
     gui->push_style_var(ImGuiStyleVar_WindowBorderSize, 1.f);
@@ -44,7 +55,7 @@ bool c_widget::begin_popup(std::string_view name, float size_w, const ImVec2& po
     state->hovered = IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize());
     content_size = GetContentRegionAvail();
 
-    return state->window_opened;
+    return true;
 }
 
 void c_widget::end_popup()
@@ -117,7 +128,7 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
     gui->set_next_window_pos(ImVec2(target_x, target_y));
     gui->set_next_window_size(ImVec2(tooltip_w, 0));
 
-    if (gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse))
+    if (gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav))
     {
         state->hovered = IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize());
 

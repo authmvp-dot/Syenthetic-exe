@@ -223,16 +223,19 @@ bool slider_scalar(std::string_view label, ImGuiDataType data_type, T* p_data, c
     const ImVec2 pos = window->DC.CursorPos;
 
     const ImRect rect(pos, pos + ImVec2(width, height));
-    const ImRect slider(pos + ImVec2(width - SCALE(55), 4), pos + ImVec2(width, height - SCALE(4)));
+    const float slider_w = SCALE(62);
+    const ImRect slider(pos + ImVec2(width - slider_w, SCALE(4)), pos + ImVec2(width, height - SCALE(4)));
 
     ItemSize(ImRect(rect.Min, rect.Max));
     if (!ItemAdd(rect, id)) return false;
 
     if (!format) format = DataTypeGetInfo(data_type)->PrintFmt;
-    bool hovered = ItemHoverable(slider, id, g.LastItemData.InFlags), held, pressed = ButtonBehavior(ImRect(rect.Min, rect.Max), id, &hovered, &held, NULL);
+    bool hovered = ItemHoverable(slider, id, g.LastItemData.InFlags);
+    bool row_hovered = ItemHoverable(rect, id, g.LastItemData.InFlags);
+    bool held, pressed = ButtonBehavior(slider, id, &hovered, &held, NULL);
 
     ImRect grab_bb;
-    const bool value_changed = slider_behavior(ImRect(slider.Min, slider.Max), id, data_type, p_data, p_min, p_max, format, NULL, &grab_bb);
+    const bool value_changed = slider_behavior(slider, id, data_type, p_data, p_min, p_max, format, NULL, &grab_bb);
     char value_buf[64];
 
     if (value_changed) MarkItemEdited(id);
@@ -258,22 +261,15 @@ bool slider_scalar(std::string_view label, ImGuiDataType data_type, T* p_data, c
     const int num_bars = 5;
 
     float bar_width = SCALE(3);
-    float bar_spacing = (slider.GetWidth() - num_bars * bar_width) / (num_bars);
+    float fraction = (*f_max > *f_min) ? (float)(*f_data - *f_min) / (float)(*f_max - *f_min) : 0.f;
 
     for (int i = 0; i < num_bars; ++i) {
         float side_padding = SCALE(6.f);
         float x = slider.Min.x + (slider.GetWidth() - side_padding) / num_bars * i;
-        state->alphab[i] = ImLerp(state->alphab[i], state->selected[i] ? 1.f : 0.1f, gui->fixed_speed(12.f));
+        bool is_bar_active = (fraction >= ((float)i / (float)num_bars));
+        state->alphab[i] = ImLerp(state->alphab[i], is_bar_active ? 1.f : 0.15f, gui->fixed_speed(16.f));
 
-        state->height[i] = ImLerp(state->height[i], state->selected[i] ? SCALE(8.f) : SCALE(5.f), gui->fixed_speed(8.f));
-
-        float lower_bound = *f_min + (*f_max - *f_min) * (i * 0.25f);
-        float upper_bound = *f_min + (*f_max - *f_min) * ((i + 1) * 0.25);
-
-        if (*f_data >= lower_bound && *f_data < upper_bound)
-            state->selected[i] = true;
-        else
-            state->selected[i] = false;
+        state->height[i] = ImLerp(state->height[i], is_bar_active ? SCALE(7.5f) : SCALE(4.5f), gui->fixed_speed(12.f));
 
         draw->add_rect_filled(window->DrawList, ImVec2(x + side_padding, slider.GetCenter().y - state->height[i]), ImVec2(x + bar_width + side_padding, slider.GetCenter().y + state->height[i]), gui->get_clr(clr->c_other_clr.accent_clr, state->alphab[i]), 30);
     }
@@ -281,38 +277,37 @@ bool slider_scalar(std::string_view label, ImGuiDataType data_type, T* p_data, c
     T* data_ptr = static_cast<T*>(p_data);
     T target_value = *data_ptr;
     
-    if (hovered)
+    if (row_hovered && GetIO().MouseWheel != 0.0f)
     {
-        if (*f_data < *f_max)
+        if (GetIO().MouseWheel > 0.0f && *f_data < *f_max)
         {
-            if (GetIO().MouseWheel > 0.0f)
-            {
-                *data_ptr += power;
-            }
+            *data_ptr += power;
         }
-
-        if (*f_data > *f_min)
+        else if (GetIO().MouseWheel < 0.0f && *f_data > *f_min)
         {
-            if (GetIO().MouseWheel < 0.0f)
-            {
-                *data_ptr -= power;
-            }
+            *data_ptr -= power;
         }
 
         *f_data = ImClamp(*f_data, *f_min, *f_max);
     }
 
     if constexpr (std::is_arithmetic_v<T>) {
-
-        T step = (target_value - state->slow_value) * gui->fixed_speed(15.f);
-        if (step == 0 && state->slow_value != target_value) step = (target_value > state->slow_value) ? 1 : -1;
-        state->slow_value += step;
+        if (g.ActiveId == id)
+        {
+            state->slow_value = *data_ptr;
+        }
+        else
+        {
+            T step = (target_value - state->slow_value) * gui->fixed_speed(25.f);
+            if (step == 0 && state->slow_value != target_value) step = (target_value > state->slow_value) ? 1 : -1;
+            state->slow_value += step;
+        }
     } 
 
     snprintf(value_buf, sizeof(value_buf), format, state->slow_value);
 
     draw->render_text(set->c_font.inter_medium[0], window->DrawList, rect.Min, rect.Max, gui->get_clr(state->text), label.data(), NULL, NULL, { 0.0, 0.5 }, NULL);
-    draw->render_text(set->c_font.inter_medium[0], window->DrawList, rect.Min, rect.Max - SCALE(70, 0), gui->get_clr(state->text), value_buf, NULL, NULL, {1.0, 0.5}, NULL);
+    draw->render_text(set->c_font.inter_medium[0], window->DrawList, rect.Min, rect.Max - SCALE(75, 0), gui->get_clr(state->text), value_buf, NULL, NULL, {1.0, 0.5}, NULL);
 
     return value_changed;
 }
