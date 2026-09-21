@@ -171,9 +171,9 @@ static int QueryNvApiGpuUsage()
     return -1;
 }
 
-static int GetRealGpuUsage(float framerate)
+static int GetRealGpuUsage()
 {
-    static int s_lastGpuUsage = 26;
+    static int s_lastGpuUsage = -1;
     static DWORD s_lastGpuTick = 0;
     DWORD now = GetTickCount();
 
@@ -189,14 +189,8 @@ static int GetRealGpuUsage(float framerate)
         return s_lastGpuUsage;
     }
 
-    // Dynamic render load calculation when NVAPI is not present
-    float load = (framerate > 0.f ? (framerate / 300.0f) * 35.0f : 20.0f);
-    float jitter = sinf((float)now * 0.003f) * 4.0f;
-    int calculated = (int)roundf(load + jitter);
-    if (calculated < 8) calculated = 8;
-    if (calculated > 98) calculated = 98;
-    s_lastGpuUsage = calculated;
-    return s_lastGpuUsage;
+    s_lastGpuUsage = -1;
+    return -1;
 }
 
 void UpdateHudWindow(float framerate)
@@ -360,8 +354,12 @@ void UpdateHudWindow(float framerate)
         g.DrawEllipse(&iconPen, curX + 3.0f, centerY - 2.5f, 4.0f, 4.0f);
         curX += 12.0f + 6.0f;
 
-        int gpu_val = GetRealGpuUsage(framerate);
-        std::wstring wgpu = L"GPU " + std::to_wstring(gpu_val) + L" %";
+        int gpu_val = GetRealGpuUsage();
+        std::wstring wgpu;
+        if (gpu_val >= 0)
+            wgpu = L"GPU " + std::to_wstring(gpu_val) + L" %";
+        else
+            wgpu = L"GPU N/A";
         g.MeasureString(wgpu.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wgpu.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
         curX += bound.Width + 12.0f;
