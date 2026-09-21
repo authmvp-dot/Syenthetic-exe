@@ -1,0 +1,102 @@
+name: Build Synthetic and Send to Discord
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Synthetic (Release x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Solution (Release x64)
+        run: |
+          msbuild framework.sln /p:Configuration=Release /p:Platform=x64 /p:PreferredToolArchitecture=x64 /m
+
+      - name: Prepare Artifacts
+        id: prepare
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "build_output" -Force | Out-Null
+          
+          # Search for the compiled binary
+          $foundExe = Get-ChildItem -Path . -Recurse -Filter "Synthetic.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $foundExe) {
+            $foundExe = Get-ChildItem -Path "thirdparty/imgui/examples/example_win32_directx11" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+
+          if (-not $foundExe -or -not (Test-Path $foundExe.FullName)) {
+            Write-Error "Build failed: No compiled .exe found!"
+            exit 1
+          }
+
+          Write-Host "Found compiled binary at: $($foundExe.FullName)"
+          Copy-Item -Path $foundExe.FullName -Destination "build_output/Synthetic.exe" -Force
+          Compress-Archive -Path "build_output/Synthetic.exe" -DestinationPath "build_output/Synthetic-Release-x64.zip" -Force
+          Write-Host "Artifacts prepared in build_output directory."
+
+      - name: Upload Artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthetic-Release-x64
+          path: |
+            build_output/Synthetic.exe
+            build_output/Synthetic-Release-x64.zip
+
+      - name: Send to Discord Webhook
+        shell: pwsh
+        env:
+          SECRET_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          $webhook = $env:SECRET_WEBHOOK
+          if ([string]::IsNullOrWhiteSpace($webhook)) {
+            # Fallback webhook provided by user
+            $webhook = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUwMjAyMDAwOTc1NTU0NTcxMC9WdEYwdURNOU1mVllBSUVYajQydlQ1SmdGS0pzRnJUOEJTbGlad2YtaW8teXlhcEwxT1NDR0p2NFg1ZFNKSnNwaUlCSA=="))
+          }
+
+          if ([string]::IsNullOrWhiteSpace($webhook)) {
+            Write-Warning "No Discord webhook provided. Skipping."
+            exit 0
+          }
+
+          $commitSha = "${{ github.sha }}"
+          $shortSha = if ($commitSha.Length -ge 7) { $commitSha.Substring(0, 7) } else { $commitSha }
+          $repo = "${{ github.repository }}"
+          $actor = "${{ github.actor }}"
+          $runId = "${{ github.run_id }}"
+          $runUrl = "https://github.com/$repo/actions/runs/$runId"
+
+          $message = "🚀 **Synthetic x64 Build Successful!**`n" +
+                     "📦 **File:** ``Synthetic.exe`` (and ``Synthetic-Release-x64.zip``)`n" +
+                     "📁 **Repository:** $repo`n" +
+                     "📌 **Commit:** $shortSha`n" +
+                     "👤 **Triggered By:** $actor`n" +
+                     "🔗 **GitHub Run:** $runUrl"
+
+          Write-Host "Uploading build artifacts to Discord Webhook..."
+
+          curl.exe -f -s -S `
+            -F "content=$message" `
+            -F "file1=@build_output/Synthetic-Release-x64.zip" `
+            -F "file2=@build_output/Synthetic.exe" `
+            "$webhook"
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Successfully sent to Discord Webhook!"
+          } else {
+            Write-Warning "Sending raw .exe might have hit file filter, retrying with ZIP only..."
+            curl.exe -f -s -S `
+              -F "content=$message" `
+              -F "file1=@build_output/Synthetic-Release-x64.zip" `
+              "$webhook"
+          }
