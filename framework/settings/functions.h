@@ -27,6 +27,7 @@ inline bool                     g_SwapChainOccluded = false;
 inline UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 inline ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 inline HWND g_hwnd = nullptr;
+inline HWND g_hHudWnd = nullptr;
 
 #define SCALE(...) scale_impl(__VA_ARGS__, var->c_dpi.dpi)
 

@@ -9,19 +9,19 @@ void c_gui::render()
 		notify->setup_notify();
 
 		ImVec2 menu_size = SCALE(set->c_window.window_size);
-		gui->set_next_window_pos(SCALE(270, 15), ImGuiCond_FirstUseEver);
+		gui->set_next_window_pos(ImVec2(0, 0));
 		gui->set_next_window_size(menu_size);
 
-		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags);
+		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 		{
-			// Native window dragging when clicking the 110px left sidebar or top 35px area
+			// Native window dragging when clicking the top 35px area or top sidebar header
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				ImVec2 mouse = ImGui::GetMousePos();
 				ImVec2 wpos = ImGui::GetWindowPos();
 				ImVec2 wsize = ImGui::GetWindowSize();
-				if ((mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + wsize.y) ||
-					(mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(35) && mouse.x >= wpos.x && mouse.x <= wpos.x + wsize.x))
+				if ((mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(35) && mouse.x >= wpos.x && mouse.x <= wpos.x + wsize.x) ||
+					(mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(75)))
 				{
 					if (g_hwnd)
 					{
@@ -59,23 +59,72 @@ void c_gui::render()
 			draw->rect_filled_multi_color(draw_list, { pos.x + size.x / 2, pos.y + size.y - 1 }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f));
 			draw->rect_filled_multi_color(draw_list, { pos.x, pos.y + size.y - 1 }, { pos.x + size.x / 2, pos.y + size.y }, gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			draw->render_text(draw_list, set->c_font.icon[2], { pos.x, pos.y }, { pos.x + SCALE(110), pos.y + size.y }, gui->get_clr(clr->c_other_clr.accent_clr), "B", 0, 0, { 0.5, 0.5 });
+			// 1. Top Logo in sidebar
+			draw->render_text(draw_list, set->c_font.icon[2], { pos.x, pos.y + SCALE(10) }, { pos.x + SCALE(110), pos.y + SCALE(62) }, gui->get_clr(clr->c_other_clr.accent_clr), "B", 0, 0, { 0.5f, 0.5f });
+			draw->rect_filled_multi_color(draw_list, { pos.x + SCALE(20), pos.y + SCALE(68) }, { pos.x + SCALE(90), pos.y + SCALE(70) },
+				gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
+				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			gui->push_font(set->c_font.name);
+			// 2. Vertical tabs stacked from top to bottom
+			float start_tab_y = pos.y + SCALE(80);
+			float tab_h = SCALE(60);
+			float tab_spacing = SCALE(12);
+			float tab_w = SCALE(76);
+			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
-			const int vtx_start_one = draw_list->VtxBuffer.Size;
-			gui->rotate_start();
-			draw->render_text_with_spacing(set->c_window.name.c_str(), SCALE(3.f), pos, pos + ImVec2(SCALE(110), size.y / 2), ImColor(255, 255, 255), true);
-			gui->rotate_end(gui->deg_to_rad(-90));
-			const int vtx_end_one = draw_list->VtxBuffer.Size;
-			draw->set_linear_color_alpha(draw_list, vtx_start_one, vtx_end_one, pos + ImVec2(0, size.y / 6), pos + ImVec2(0, size.y / 2), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr));
+			const char* tab_names[7] = { "Ragebot", "Visuals", "Players", "Movement", "Settings", "Configs", "Scripts" };
 
-			const int vtx_start_two = draw_list->VtxBuffer.Size;
-			draw->render_text_with_spacing(set->c_window.name.c_str(), SCALE(3.f), pos + ImVec2(0, size.y / 2), pos + ImVec2(SCALE(110), size.y), ImColor(255, 255, 255), true);
-			const int vtx_end_two = draw_list->VtxBuffer.Size;
-			draw->set_linear_color_alpha(draw_list, vtx_start_two, vtx_end_two, pos + ImVec2(0, size.y / 2), pos + ImVec2(0, size.y / 2 + size.y / 3), gui->get_clr(clr->c_other_clr.accent_clr), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
+			for (int i = 0; i < 7; i++)
+			{
+				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
+				ImRect tab_rect(ImVec2(tab_x, cur_y), ImVec2(tab_x + tab_w, cur_y + tab_h));
+				ImGuiID tab_id = ImGui::GetID(("##sidebar_tab_" + std::to_string(i)).c_str());
 
-			gui->pop_font();
+				bool hovered = false, held = false;
+				bool pressed = ImGui::ButtonBehavior(tab_rect, tab_id, &hovered, &held);
+				if (pressed)
+				{
+					var->c_selection.selection = i;
+				}
+
+				struct s_side_tab { float anim; float hover; };
+				s_side_tab* st = gui->anim_container(&st, tab_id);
+				bool is_active = (var->c_selection.selection == i);
+				st->anim = ImLerp(st->anim, is_active ? 1.f : 0.f, gui->fixed_speed(14.f));
+				st->hover = ImLerp(st->hover, hovered ? 1.f : 0.f, gui->fixed_speed(14.f));
+
+				// Button background with smooth accent glow
+				ImVec4 bg_col = ImLerp(clr->c_window.layout, clr->c_other_clr.accent_clr, st->anim * 0.22f);
+				if (st->hover > 0.01f && !is_active)
+					bg_col = ImLerp(bg_col, clr->c_element.layout, st->hover * 0.5f);
+				draw->add_rect_filled(draw_list, tab_rect.Min, tab_rect.Max, gui->get_clr(bg_col), SCALE(8.f));
+
+				// Button border
+				ImVec4 border_col = ImLerp(clr->c_window.stroke, clr->c_other_clr.accent_clr, st->anim * 0.85f);
+				if (st->hover > 0.01f && !is_active)
+					border_col = ImLerp(border_col, clr->c_other_clr.accent_clr, st->hover * 0.4f);
+				draw->add_rect(draw_list, tab_rect.Min, tab_rect.Max, gui->get_clr(border_col), SCALE(8.f));
+
+				// Left glowing indicator bar
+				if (st->anim > 0.01f)
+				{
+					float bar_pad = SCALE(14.f) * (1.f - st->anim);
+					draw->add_rect_filled(draw_list,
+						{ tab_rect.Min.x + SCALE(3), tab_rect.Min.y + bar_pad + SCALE(4) },
+						{ tab_rect.Min.x + SCALE(6), tab_rect.Max.y - bar_pad - SCALE(4) },
+						gui->get_clr(clr->c_other_clr.accent_clr, st->anim), SCALE(2.f));
+				}
+
+				// Tab icon
+				ImVec4 icon_col = ImLerp(clr->c_text.text, clr->c_other_clr.accent_clr, st->anim);
+				if (is_active) icon_col = ImColor(255, 255, 255);
+				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
+
+				if (hovered)
+				{
+					widget->set_tooltip(tab_names[i], "");
+				}
+			}
 
 			gui->set_cursor_pos(SCALE(110, 15));
 
@@ -524,69 +573,6 @@ void c_gui::render()
 
 		}
 		gui->end();
-
-		// 2. Circle Tab ("SELECTION") - Draggable separately inside the UI canvas!
-		gui->push_style_var(ImGuiStyleVar_WindowPadding, SCALE(15, 15));
-		gui->push_style_var(ImGuiStyleVar_ItemSpacing, SCALE(4, 0));
-		{
-			gui->set_next_window_pos(SCALE(15, 185), ImGuiCond_FirstUseEver);
-			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysAutoResize);
-			{
-				const ImVec2 pos = GetWindowPos();
-				const ImVec2 size = GetWindowSize();
-
-				ImDrawList* draw_list = GetWindowDrawList();
-
-				// Sleek dark frosted rounded pill backdrop for the 7 hexagons
-				draw->add_rect_filled(draw_list, pos, pos + size, gui->get_clr(clr->c_window.general_layout, 0.88f), SCALE(20.f));
-				draw->add_rect(draw_list, pos, pos + size, gui->get_clr(clr->c_window.general_stroke, 0.95f), SCALE(20.f));
-				draw->rect_filled_multi_color(draw_list, { pos.x + size.x / 4, pos.y }, { pos.x + 3 * size.x / 4, pos.y + 2 },
-					gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.8f),
-					gui->get_clr(clr->c_other_clr.accent_clr, 0.8f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
-
-				gui->set_cursor_pos_x(SCALE(54));
-				gui->begin_group();
-				{
-					widget->selection(var->c_selection.selection_icon[0].data(), ImVec2(74, 76), 0, var->c_selection.selection);
-
-					gui->sameline();
-
-					widget->selection(var->c_selection.selection_icon[1].data(), ImVec2(74, 76), 1, var->c_selection.selection);
-				}
-				gui->end_group();
-
-				gui->set_cursor_pos_y(get_cursor_pos_y() - SCALE(5));
-				gui->begin_group();
-				{
-					widget->selection(var->c_selection.selection_icon[2].data(), ImVec2(74, 76), 2, var->c_selection.selection);
-
-					gui->sameline();
-
-					widget->selection(var->c_selection.selection_icon[3].data(), ImVec2(74, 76), 3, var->c_selection.selection);
-
-					gui->sameline();
-
-					widget->selection(var->c_selection.selection_icon[4].data(), ImVec2(74, 76), 4, var->c_selection.selection);
-				}
-				gui->end_group();
-
-				gui->set_cursor_pos(get_cursor_pos() + SCALE(39, -5));
-				gui->begin_group();
-				{
-					widget->selection(var->c_selection.selection_icon[5].data(), ImVec2(74, 76), 5, var->c_selection.selection);
-
-					gui->sameline();
-
-					widget->selection(var->c_selection.selection_icon[6].data(), ImVec2(74, 76), 6, var->c_selection.selection);
-				}
-				gui->end_group();
-
-			}
-			gui->end();
-		}
-		gui->pop_style_var(2);
-
-		gui->water_mark("watermark", var->c_watermark.watermark_content, static_cast<watermark_position>(var->c_watermark.watermark_position), &var->c_watermark.watermark);
 
 	}
 	gui->end_frame();
