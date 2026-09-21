@@ -14,22 +14,41 @@ void c_gui::render()
 
 		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 		{
-			// Native window dragging ONLY when clicking the top logo in sidebar
+			const ImVec2 pos = GetWindowPos();
+			const ImVec2 size = GetWindowSize();
+
+			float start_tab_y = pos.y + SCALE(80);
+			float tab_h = SCALE(62);
+			float tab_spacing = SCALE(14);
+			float tab_w = SCALE(76);
+			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
+
+			// Native window dragging from ANY empty / transparent space or logo in the sidebar
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				ImVec2 mouse = ImGui::GetMousePos();
-				ImVec2 wpos = ImGui::GetWindowPos();
-				if (mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(72))
+				if (mouse.x >= pos.x && mouse.x <= pos.x + SCALE(110) &&
+				    mouse.y >= pos.y && mouse.y <= pos.y + size.y)
 				{
-					if (g_hwnd)
+					bool on_tab = false;
+					for (int t = 0; t < 3; ++t)
+					{
+						float ty = start_tab_y + t * (tab_h + tab_spacing);
+						if (mouse.x >= tab_x && mouse.x <= tab_x + tab_w &&
+						    mouse.y >= ty && mouse.y <= ty + tab_h)
+						{
+							on_tab = true;
+							break;
+						}
+					}
+
+					if (!on_tab && g_hwnd)
 					{
 						ReleaseCapture();
 						SendMessage(g_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 					}
 				}
 			}
-			const ImVec2 pos = GetWindowPos();
-			const ImVec2 size = GetWindowSize();
 
 			ImDrawList* draw_list = GetWindowDrawList();
 			ImGuiStyle* style = &GetStyle();
@@ -61,29 +80,10 @@ void c_gui::render()
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			// 2. Vertical tabs stacked from top to bottom
-			float start_tab_y = pos.y + SCALE(78);
-			float tab_h = SCALE(62);
-			float tab_spacing = SCALE(12);
-			float tab_w = SCALE(76);
-			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
-
+			// 2. Vertical tabs stacked smoothly from top to bottom
 			for (int i = 0; i < 3; i++)
 			{
-				float cur_y;
-				if (i == 2) // Settings tab docked at bottom of sidebar
-				{
-					cur_y = pos.y + size.y - SCALE(20) - tab_h;
-					// Subtle accent separator line above the bottom Settings tab
-					float div_y = cur_y - SCALE(12);
-					draw->rect_filled_multi_color(draw_list, { pos.x + SCALE(20), div_y }, { pos.x + SCALE(90), div_y + SCALE(2) },
-						gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.45f),
-						gui->get_clr(clr->c_other_clr.accent_clr, 0.45f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
-				}
-				else
-				{
-					cur_y = start_tab_y + i * (tab_h + tab_spacing);
-				}
+				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
 
 				ImRect tab_rect(ImVec2(tab_x, cur_y), ImVec2(tab_x + tab_w, cur_y + tab_h));
 				ImGuiID tab_id = ImGui::GetID(("##sidebar_tab_" + std::to_string(i)).c_str());
@@ -118,20 +118,20 @@ void c_gui::render()
 					border_col = ImLerp(border_col, clr->c_other_clr.accent_clr, st->hover * 0.4f);
 				draw->add_rect(draw_list, tab_rect.Min, tab_rect.Max, gui->get_clr(border_col), SCALE(8.f));
 
-				// Left glowing indicator bar
+				// Horizontal glowing indicator bar across the width (at bottom of tab)
 				if (st->anim > 0.01f)
 				{
-					float bar_pad = SCALE(14.f) * (1.f - st->anim);
+					float bar_pad = SCALE(14.f) * (1.f - st->anim) + SCALE(10.f);
 					draw->add_rect_filled(draw_list,
-						{ tab_rect.Min.x + SCALE(3), tab_rect.Min.y + bar_pad + SCALE(4) },
-						{ tab_rect.Min.x + SCALE(6), tab_rect.Max.y - bar_pad - SCALE(4) },
-						gui->get_clr(clr->c_other_clr.accent_clr, st->anim), SCALE(2.f));
+						{ tab_rect.Min.x + bar_pad, tab_rect.Max.y - SCALE(5.5f) },
+						{ tab_rect.Max.x - bar_pad, tab_rect.Max.y - SCALE(2.5f) },
+						gui->get_clr(clr->c_other_clr.accent_clr, st->anim), SCALE(1.5f));
 				}
 
 				// Tab icon
 				ImVec4 inactive_icon = ImLerp(ImVec4(0.62f, 0.62f, 0.74f, 1.0f), ImVec4(1.f, 1.f, 1.f, 1.f), st->hover);
 				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(inactive_icon, ImVec4(1.f, 1.f, 1.f, 1.f), st->anim);
-				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
+				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max - ImVec2(0, SCALE(2.f)), gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.48f });
 			}
 
 			gui->set_cursor_pos(SCALE(115, 15));
