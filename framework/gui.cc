@@ -63,16 +63,28 @@ void c_gui::render()
 
 			// 2. Vertical tabs stacked from top to bottom
 			float start_tab_y = pos.y + SCALE(78);
-			float tab_h = SCALE(60);
-			float tab_spacing = SCALE(10);
+			float tab_h = SCALE(62);
+			float tab_spacing = SCALE(12);
 			float tab_w = SCALE(76);
 			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
-			const char* tab_names[7] = { "Ragebot", "Visuals", "Players", "Movement", "Settings", "Configs", "Scripts" };
-
-			for (int i = 0; i < 7; i++)
+			for (int i = 0; i < 3; i++)
 			{
-				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
+				float cur_y;
+				if (i == 2) // Settings tab docked at bottom of sidebar
+				{
+					cur_y = pos.y + size.y - SCALE(20) - tab_h;
+					// Subtle accent separator line above the bottom Settings tab
+					float div_y = cur_y - SCALE(12);
+					draw->rect_filled_multi_color(draw_list, { pos.x + SCALE(20), div_y }, { pos.x + SCALE(90), div_y + SCALE(2) },
+						gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.45f),
+						gui->get_clr(clr->c_other_clr.accent_clr, 0.45f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
+				}
+				else
+				{
+					cur_y = start_tab_y + i * (tab_h + tab_spacing);
+				}
+
 				ImRect tab_rect(ImVec2(tab_x, cur_y), ImVec2(tab_x + tab_w, cur_y + tab_h));
 				ImGuiID tab_id = ImGui::GetID(("##sidebar_tab_" + std::to_string(i)).c_str());
 
@@ -120,8 +132,6 @@ void c_gui::render()
 				ImVec4 inactive_icon = ImLerp(ImVec4(0.62f, 0.62f, 0.74f, 1.0f), ImVec4(1.f, 1.f, 1.f, 1.f), st->hover);
 				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(inactive_icon, ImVec4(1.f, 1.f, 1.f, 1.f), st->anim);
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
-
-				widget->set_tooltip(tab_names[i], "");
 			}
 
 			gui->set_cursor_pos(SCALE(115, 15));
@@ -188,9 +198,6 @@ void c_gui::render()
 						gui->begin_child("move");
 						{
 							widget->slider_int("Hit chance", &var->c_move.hit_chance, 0, 100, 1, "%d%%");
-							{
-								widget->set_tooltip("Hit chance", "It displays a tooltip when you hover over an item, a very handy GUI utility\nwith many functions that are not always easy to understand by name.");
-							}
 
 							widget->separator();
 
@@ -322,113 +329,7 @@ void c_gui::render()
 					}
 					gui->end_group();
 				}
-				else if (var->c_selection.selection_active == 2) // Players
-				{
-					gui->begin_group();
-					{
-						gui->begin_child("players_esp");
-						{
-							widget->checkbox_with_key("Enable ESP", &var->c_esp.esp, &var->c_esp.esp_key, &var->c_esp.esp_holding, &var->c_esp.esp_value, &var->c_esp.esp_show_binds);
-
-							widget->separator();
-
-							widget->checkbox_with_key("Visible teammates", &var->c_attachments.teammates, &var->c_attachments.teammates_key, &var->c_attachments.teammates_holding, &var->c_attachments.teammates_value, &var->c_attachments.teammates_show_binds);
-
-							widget->separator();
-
-							widget->checkbox("Through walls", &var->c_esp.through_walls);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Weapon", &var->c_skeleton.weapon, var->c_skeleton.weapon_color, true);
-						}
-						gui->end_child();
-					}
-					gui->end_group();
-
-					gui->sameline();
-
-					gui->begin_group();
-					{
-						gui->begin_child("players_models");
-						{
-							widget->checkbox_with_key("Enable chams", &var->c_chams.chams, &var->c_chams.chams_key, &var->c_chams.chams_holding, &var->c_chams.chams_value, &var->c_chams.chams_show_binds);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Backtrack", &var->c_chams.backtrack, var->c_chams.backtrack_color, true);
-
-							widget->separator();
-
-							widget->checkbox("Skeleton", &var->c_skeleton.skeleton);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Ragdolls", &var->c_chams.ragdolls, var->c_chams.ragdolls_color, true);
-						}
-						gui->end_child();
-					}
-					gui->end_group();
-				}
-				else if (var->c_selection.selection_active == 3) // Movement
-				{
-					static bool bhop = true;
-					static bool auto_strafe = false;
-					static bool fast_stop = true;
-					static bool slide_walk = false;
-					static int move_speed = 100;
-
-					gui->begin_group();
-					{
-						gui->begin_child("movement_main");
-						{
-							widget->checkbox("Bunny hop", &bhop);
-
-							widget->separator();
-
-							widget->checkbox("Auto strafe", &auto_strafe);
-
-							widget->separator();
-
-							widget->checkbox("Fast stop", &fast_stop);
-
-							widget->separator();
-
-							widget->checkbox("Slide walk", &slide_walk);
-
-							widget->separator();
-
-							widget->slider_int("Movement speed", &move_speed, 0, 100, 1, "%d%%");
-						}
-						gui->end_child();
-					}
-					gui->end_group();
-
-					gui->sameline();
-
-					gui->begin_group();
-					{
-						gui->begin_child("movement_assist");
-						{
-							widget->slider_int("Smoothness", &var->c_recoil.smoothness, 0, 100, 1, "%d%%");
-
-							widget->separator();
-
-							widget->slider_float("Pitch", &var->c_settings.pitch, 0.f, 1.f, 0.1f, "%.3f");
-
-							widget->separator();
-
-							widget->slider_float("Yaw", &var->c_settings.yaw, 0.f, 1.f, 0.1f, "%.3f");
-						}
-						gui->end_child();
-					}
-					gui->end_group();
-				}
-				else if (var->c_selection.selection_active == 4) // Settings
+				else if (var->c_selection.selection_active == 2) // Settings
 				{
 					gui->begin_group();
 					{
@@ -484,169 +385,6 @@ void c_gui::render()
 						gui->end_child();
 					}
 					gui->end_group();
-				}
-				else if (var->c_selection.selection_active == 5) // Configs
-				{
-					draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(GetStyle().WindowPadding.x, SCALE(64)), GetWindowPos() + ImVec2(GetWindowWidth() - GetStyle().WindowPadding.x, SCALE(64)), gui->get_clr(clr->c_child.stroke), SCALE(1.f));
-					widget->tool_dropdown("Sort", &var->c_config.sort_selection, var->c_config.sort_list, var->c_config.sort_list.size());
-
-					gui->sameline();
-
-					if (widget->tool_button("Create", "A", SCALE(90, 36)))
-						var->c_config.create = true;
-
-					if (var->c_config.create)
-					{
-						gui->set_next_window_size(SCALE(310, 80));
-						gui->set_next_window_pos(GetWindowPos() + (GetWindowSize() / 2 - SCALE(310, 80) / 2));
-						gui->push_style_var(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-						gui->begin("Create", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);
-						{
-							draw->add_rect_filled(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.layout), SCALE(set->c_child.rounding));
-							draw->add_rect(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.stroke), SCALE(set->c_child.rounding), 0, SCALE(1.f));
-
-							gui->set_cursor_pos(SCALE(20, 20));
-							gui->begin_group();
-							{
-								widget->text_field("Config Name", "M", var->c_config.name, 128, SCALE(180, 40));
-								gui->sameline();
-								ImGui::PushID("Create Config");
-								if (widget->button("Create", SCALE(75, 40)))
-								{
-									std::string name(var->c_config.name);
-									var->c_config.data.insert(var->c_config.data.begin(), { name, gui->get_current_date() });
-									var->c_config.create = false;
-								}
-								ImGui::PopID();
-							}
-							gui->end_group();
-
-							if (!IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize()) && (IsMouseClicked(0) || IsMouseClicked(1)))
-								var->c_config.create = false;
-						}
-						gui->end();
-						gui->pop_style_var();
-					}
-
-					gui->set_cursor_pos_y(SCALE(80));
-					gui->begin_group();
-					{
-						for (int i = 0; i < var->c_config.data.size(); i++)
-						{
-							if (var->c_config.sort_selection == 0)
-								widget->config_selectable(&var->c_config.data.at(i), i, var->c_config.active);
-							else if (var->c_config.sort_selection == 1)
-								widget->config_selectable(&var->c_config.data.at(var->c_config.data.size() - i - 1), var->c_config.data.size() - i - 1, var->c_config.active);
-						}
-					}
-					gui->end_group();
-				}
-				else if (var->c_selection.selection_active == 6) // Scripts
-				{
-					draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(GetStyle().WindowPadding.x, SCALE(64)), GetWindowPos() + ImVec2(GetWindowWidth() - GetStyle().WindowPadding.x, SCALE(64)), gui->get_clr(clr->c_child.stroke), SCALE(1.f));
-
-					widget->tool_dropdown("Sort", &var->c_lua.sort_selection, var->c_lua.sort_list, var->c_lua.sort_list.size());
-
-					gui->sameline();
-					
-					if (widget->tool_button("Create", "A", SCALE(90, 36)))
-						var->c_lua.create = true;
-					
-					if (var->c_lua.create)
-					{
-						gui->set_next_window_size(SCALE(310, 80));
-						gui->set_next_window_pos(GetWindowPos() + (GetWindowSize() / 2 - SCALE(310, 80) / 2));
-						gui->push_style_var(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-						gui->begin("Create", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);
-						{
-							draw->add_rect_filled(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.layout), SCALE(set->c_child.rounding));
-							draw->add_rect(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.stroke), SCALE(set->c_child.rounding), 0, SCALE(1.f));
-
-							gui->set_cursor_pos(SCALE(20, 20));
-							gui->begin_group();
-							{
-								widget->text_field("Lua Name", "M", var->c_lua.name, 128, SCALE(180, 40));
-								gui->sameline();
-								ImGui::PushID("Create Lua");
-								if (widget->button("Create", SCALE(75, 40)))
-								{
-									std::string name(var->c_lua.name);
-									var->c_lua.data.insert(var->c_lua.data.begin(), { name, gui->get_current_date(), false });
-									var->c_lua.create = false;
-								}
-								ImGui::PopID();
-							}
-							gui->end_group();
-
-							if (!IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize()) && (IsMouseClicked(0) || IsMouseClicked(1)))
-								var->c_lua.create = false;
-
-						}
-						gui->end();
-						gui->pop_style_var();
-					}
-
-					gui->set_cursor_pos_y(SCALE(80));
-					gui->begin_group();
-					{
-						for (int i = 0; i < var->c_lua.data.size(); i++)
-						{
-							if (var->c_lua.sort_selection == 0)
-							{
-								if (widget->lua_selectable(&var->c_lua.data.at(i), i))
-								{
-									var->c_lua.editable = var->c_lua.data.at(i).name;
-									var->c_lua.opened = true;
-								}
-							}
-							else if (var->c_lua.sort_selection == 1)
-							{
-								if (widget->lua_selectable(&var->c_lua.data.at(var->c_lua.data.size() - i - 1), i))
-								{
-									var->c_lua.editable = var->c_lua.data.at(i).name;
-									var->c_lua.opened = true;
-								}
-							}
-						}
-					}
-					gui->end_group();
-
-					if (var->c_lua.opened)
-					{
-						gui->set_next_window_size(SCALE(500, 520));
-						gui->set_next_window_pos(pos + ImVec2(size.x + SCALE(20), 0));
-						gui->push_style_var(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-						gui->begin("Text Editor", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);
-						{
-							draw->add_rect_filled(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_window.general_layout), SCALE(set->c_window.rounding));
-							draw->add_rect(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_window.general_stroke), SCALE(set->c_window.rounding), 0, SCALE(1.f));
-							draw->add_line(GetWindowDrawList(), GetWindowPos() + SCALE(0, 40), GetWindowPos() + ImVec2(GetWindowSize().x, SCALE(40)), gui->get_clr(clr->c_window.general_stroke), SCALE(1.f));
-							draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(0, GetWindowSize().y - SCALE(40)), GetWindowPos() + ImVec2(GetWindowSize().x, GetWindowSize().y - SCALE(40)), gui->get_clr(clr->c_window.general_stroke), SCALE(1.f));
-							draw->render_text(GetWindowDrawList(), set->c_font.inter_medium[0], GetWindowPos() + SCALE(40, 0), GetWindowPos() + ImVec2(GetWindowWidth(), SCALE(40)), gui->get_clr(clr->c_text.text_active), (std::stringstream{} << "Lua Editor - " << var->c_lua.editable).str().c_str(), NULL, NULL, ImVec2(0.f, 0.5f));
-							draw->render_text(GetWindowDrawList(), set->c_font.icon[4], GetWindowPos() + SCALE(15, 1), GetWindowPos() + ImVec2(GetWindowWidth(), SCALE(40)), gui->get_clr(clr->c_other_clr.accent_clr), "B", NULL, NULL, ImVec2(0.f, 0.5f));
-
-							gui->set_cursor_pos(ImVec2(GetWindowWidth() - SCALE(30), 13));
-							if (widget->lua_tool_button("E", "Close Button"))
-								var->c_lua.opened = false;
-
-							gui->set_cursor_pos(SCALE(10, 50));
-							text_editor->render("Text Editor", SCALE(480, 420));
-
-							gui->set_cursor_pos(GetWindowSize() - SCALE(122, 34));
-							if (widget->tool_button("Save", "", SCALE(54, 28)))
-							{
-
-							}
-
-							gui->set_cursor_pos(GetWindowSize() - SCALE(61, 34));
-							if (widget->tool_button("Run", "", SCALE(54, 28)))
-							{
-
-							}
-						}
-						gui->end();
-						gui->pop_style_var();
-					}
 				}
 			}
 			gui->end_content();

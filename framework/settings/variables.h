@@ -33,7 +33,7 @@ public:
 	struct
 	{
 
-		std::vector<std::string> selection_icon = { "K", "F", "H", "N", "J", "V", "E" };
+		std::vector<std::string> selection_icon = { "K", "F", "E" };
 
 		int selection = 0, selection_active = 0;
 		float selection_alpha = 1, selection_add;
