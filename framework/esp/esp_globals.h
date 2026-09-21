@@ -36,7 +36,7 @@ public:
     } EspConfig;
 
     struct Visuals_t {
-        bool Enable = false;
+        bool Enable = true;
 
         // Box
         bool Box = true;

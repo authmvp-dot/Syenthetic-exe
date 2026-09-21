@@ -192,40 +192,134 @@ bool Data::ConnectEngine()
 {
     try
     {
-        if (!s_memoryEngine.IsInitialized())
+        g_connectStatus = "Refreshing...";
+        g_espShutDown = true;
+        MemoryUtils::BindBridge(nullptr);
+        Offsets::Il2Cpp = 0;
+        g_modeSelected = false;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        // Step 1: Initialize memory engine with retries (like leakproject)
+        bool engineOk = false;
+        for (int retry = 0; retry < 5 && !engineOk; retry++) {
+            engineOk = s_memoryEngine.Initialize(true);
+            if (!engineOk)
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+        }
+        if (!engineOk)
         {
-            if (!s_memoryEngine.Initialize(false))
-            {
-                g_Globals.EspConfig.Connected = false;
-                return false;
-            }
+            g_connectStatus = s_memoryEngine.LastError().empty() ? "Engine Init Failed" : s_memoryEngine.LastError();
+            g_Globals.EspConfig.Connected = false;
+            return false;
         }
 
-        if (s_memoryEngine.module().base != 0)
+        // Step 2: Extract VM info
+        char buffer[64];
+        sprintf_s(buffer, "0x%llX", (unsigned long long)s_memoryEngine.pvm());
+        g_pvm_str = buffer;
+        sprintf_s(buffer, "0x%llX", (unsigned long long)s_memoryEngine.pvcpu());
+        g_pvcpu_str = buffer;
+        sprintf_s(buffer, "%d", s_memoryEngine.auto_vm().cpu_count);
+        g_cpu_count_str = buffer;
+
+        // Step 3: Find target game process
+        g_connectStatus = "Finding Game...";
+        externaltest::MapsService maps(s_memoryEngine);
+
+        auto taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilter, false);
+        if (!taskOpt.has_value())
         {
-            Offsets::Il2Cpp = static_cast<uintptr_t>(s_memoryEngine.module().base);
+            g_connectStatus = "Game Not Found";
+            g_Globals.EspConfig.Connected = false;
+            return false;
         }
 
-        // Auto find CR3 if available
-        std::uint64_t cr3 = s_memoryEngine.pvcpu();
-        s_gvaBridge.Attach(&s_memoryEngine, cr3);
-        Mem.BindBridge(&s_gvaBridge);
+        const externaltest::TaskSnapshot& task = *taskOpt;
+
+        // Step 4: Get CR3
+        g_connectStatus = "Getting CR3...";
+        const auto task_cr3 = maps.GetTaskCr3(task, false);
+        if (!task_cr3.has_value())
+        {
+            g_connectStatus = "CR3 Failed";
+            g_Globals.EspConfig.Connected = false;
+            return false;
+        }
+
+        // Step 5: Get Il2Cpp base
+        g_connectStatus = "Getting Il2Cpp...";
+        const auto il2cpp_maps = maps.GetTaskMaps(task, externaltest::kDefaultGuestLibraryFilter, false);
+        if (il2cpp_maps.empty())
+        {
+            g_connectStatus = "Il2Cpp Failed";
+            g_Globals.EspConfig.Connected = false;
+            return false;
+        }
+
+        // Step 6: Bind bridge
+        g_connectStatus = "Binding Bridge...";
+        s_gvaBridge.Attach(&s_memoryEngine, *task_cr3);
+        s_gvaBridge.ClearTranslationCaches();
+
+        MemoryUtils::BindBridge(&s_gvaBridge);
+        Mem.Cache.clear();
+
+        {
+            std::unique_lock<std::shared_mutex> lock(g_Globals.EspConfig.EntitiesMutex);
+            g_Globals.EspConfig.Entities.clear();
+        }
+
+        Offsets::Il2Cpp = (uintptr_t)il2cpp_maps.front().vm_start;
+        Offsets::InitBase = 0; // force auto re-scan
+        g_espShutDown = false;
+
+        printf("[CONNECT] Il2Cpp = 0x%llX | maps=%zu | CR3 bind OK\n",
+            (unsigned long long)Offsets::Il2Cpp,
+            il2cpp_maps.size());
+        printf("[CONNECT] InitBase auto-scan will run on next ESP tick\n");
+        fflush(stdout);
+
+        g_modeSelected = true;
         g_Globals.EspConfig.Connected = true;
+        g_connectStatus = "Connected";
         return true;
     }
     catch (...)
     {
+        g_connectStatus = "Connection Error";
         g_Globals.EspConfig.Connected = false;
         return false;
     }
 }
 
+void Data::TriggerRefresh()
+{
+    if (g_isConnecting.load()) return;
+    g_isConnecting = true;
+
+    std::thread([]()
+    {
+        bool ok = ConnectEngine();
+        g_isConnecting = false;
+
+        if (!ok)
+        {
+            printf("[CONNECT] TriggerRefresh failed: %s\n", g_connectStatus.c_str());
+            fflush(stdout);
+        }
+    }).detach();
+}
+
 void Data::DisconnectEngine()
 {
+    g_espShutDown = true;
     g_Globals.EspConfig.Connected = false;
+    MemoryUtils::BindBridge(nullptr);
     Offsets::Il2Cpp = 0;
     Offsets::InitBase = 0;
-    Mem.BindBridge(nullptr);
+    g_modeSelected = false;
+    g_connectStatus = "Connect Lib";
 }
 
 bool Data::IsConnected()
@@ -261,12 +355,12 @@ void Data::WorkerThreadFunc()
         try
         {
             // Auto-connect if enabled and not ready
-            if (g_Globals.EspConfig.AutoRefresh && !IsConnected())
+            if (g_Globals.EspConfig.AutoRefresh && !IsConnected() && !g_isConnecting.load())
             {
-                ConnectEngine();
+                TriggerRefresh();
             }
 
-            if (IsConnected())
+            if (IsConnected() && !g_espShutDown.load())
             {
                 Work();
             }

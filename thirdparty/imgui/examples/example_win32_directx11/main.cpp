@@ -8,6 +8,7 @@
 #include "../../framework/esp/esp_visuals.h"
 #include "../../framework/esp/esp_globals.h"
 #include "../../framework/esp/name_gun.h"
+#include "../../framework/esp/overlay.hpp"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -540,6 +541,7 @@ int MainApp()
 
     Namegun::Init();
     FWork::Data::StartThread();
+    FWork::Overlay::Initialize();
 
     bool done = false;
     DWORD lastHudUpdate = 0;
@@ -629,10 +631,12 @@ int MainApp()
             var->c_dpi.dpi_changed = false;
         }
 
+        // Render transparent ESP overlay directly over game emulator
+        FWork::Overlay::RenderFrame();
+
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
 
-        ESP::Render();
         gui->render();
 
         UpdateHitTestRegion(g_hwnd);
@@ -646,6 +650,7 @@ int MainApp()
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
 
+    FWork::Overlay::Cleanup();
     FWork::Data::StopThread();
 
     s_pingThreadRunning.store(false);

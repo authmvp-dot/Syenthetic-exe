@@ -511,25 +511,106 @@ void c_gui::render()
 
 						gui->begin_child("lib_management");
 						{
-							widget->checkbox("Connect Lib", &var->c_settings.connect_lib);
+							if (widget->checkbox("Connect Lib", &var->c_settings.connect_lib))
+							{
+								if (var->c_settings.connect_lib)
+								{
+									if (!FWork::g_modeSelected.load() && !FWork::g_isConnecting.load())
+										FWork::Data::TriggerRefresh();
+								}
+								else
+								{
+									FWork::Data::DisconnectEngine();
+									notify->add_notify("ESP Disconnected", 4, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+							}
 
 							widget->separator();
 
 							const float width = GetContentRegionAvail().x;
-							bool is_conn = FWork::Data::IsConnected();
-							widget->button(is_conn ? "Lib: Connected" : "Connect Lib Now", { width, SCALE(35) });
-							if (ImGui::IsItemClicked())
+							static bool autoRefresh = false;
+							static float lastAutoRefreshTime = 0.0f;
+
+							// Auto Refresh Handler (Every 4 Seconds)
+							if (autoRefresh && FWork::g_modeSelected.load() && !FWork::g_isConnecting.load())
 							{
-								bool ok = FWork::Data::ConnectEngine();
-								if (ok)
+								float now = (float)ImGui::GetTime();
+								if (now - lastAutoRefreshTime >= 4.0f)
 								{
-									notify->add_notify("Memory Engine connected successfully!", 4, static_cast<notify_position>(var->c_notify.notify_position));
+									lastAutoRefreshTime = now;
+									FWork::Data::TriggerRefresh();
+								}
+							}
+
+							if (!FWork::g_modeSelected.load())
+							{
+								// Show VM info
+								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "pVM     : %s", FWork::g_pvm_str.c_str());
+								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "pVCpu   : %s", FWork::g_pvcpu_str.c_str());
+								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "CPU     : %s", FWork::g_cpu_count_str.c_str());
+
+								ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
+								if (!FWork::g_isConnecting.load())
+								{
+									if (widget->button(FWork::g_connectStatus.c_str(), { width, SCALE(35) }) || ImGui::IsItemClicked())
+									{
+										FWork::Data::TriggerRefresh();
+									}
 								}
 								else
 								{
-									notify->add_notify("Failed to connect Lib! Start the game/VM first.", 4, static_cast<notify_position>(var->c_notify.notify_position));
+									ImGui::TextColored(ImVec4(1, 1, 0, 1), "Status: %s", FWork::g_connectStatus.c_str());
 								}
 							}
+							else
+							{
+								ImGui::TextColored(ImVec4(0, 1, 0, 1), "Connected");
+
+								if (widget->button("Stop ESP", { width, SCALE(35) }) || ImGui::IsItemClicked())
+								{
+									var->c_settings.connect_lib = false;
+									FWork::Data::DisconnectEngine();
+									notify->add_notify("ESP Disconnected", 4, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+							}
+
+							ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
+							// Refresh ESP button
+							if (widget->button("Refresh ESP", { width, SCALE(35) }) || ImGui::IsItemClicked())
+							{
+								FWork::Data::TriggerRefresh();
+							}
+
+							ImGui::Dummy(ImVec2(0.0f, 3.0f));
+							widget->checkbox("Auto Refresh", &autoRefresh);
+
+							// Check if just connected (transition detection)
+							static bool wasConnected = false;
+							bool nowConnected = FWork::g_modeSelected.load() && !FWork::g_isConnecting.load();
+							if (nowConnected && !wasConnected)
+							{
+								// Auto-enable ESP and default features on successful connection (matching leakproject)
+								var->c_settings.connect_lib = true;
+								var->c_esp.esp = true;
+								var->c_esp.box_selection = 1; // Corner Box (ON)
+								var->c_skeleton.snaplines_selection = 1; // Bottom Snapline (ON)
+								var->c_skeleton.nickname = true; // Name (ON)
+								var->c_esp.healthbar = true; // HealthBar (ON)
+								var->c_esp.distance = true; // Distance (ON)
+								var->c_skeleton.skeleton = false; // Skeleton OFF by default
+								var->c_skeleton.weapon = false; // Weapon OFF by default
+								var->c_esp.headdot = false; // HeadDot OFF by default
+								var->c_esp.ingame_radar = false; // Radar OFF by default
+
+								notify->add_notify("Memory Engine connected successfully!", 4, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+							else if (!nowConnected && wasConnected)
+							{
+								var->c_settings.connect_lib = false;
+							}
+							wasConnected = nowConnected;
 						}
 						gui->end_child();
 					}

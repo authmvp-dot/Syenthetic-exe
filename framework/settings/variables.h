@@ -181,7 +181,7 @@ public:
 
 	struct
 	{
-		bool esp = false;
+		bool esp = true;
 		bool esp_holding = false;
 		bool esp_value = false;
 		bool esp_show_binds = false;

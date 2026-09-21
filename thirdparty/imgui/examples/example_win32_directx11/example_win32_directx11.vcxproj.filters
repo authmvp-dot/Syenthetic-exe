@@ -84,6 +84,9 @@
     <ClInclude Include="..\..\..\..\framework\esp\offsets.h">
       <Filter>esp</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\esp\overlay.hpp">
+      <Filter>esp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\..\..\framework\esp\player.h">
       <Filter>esp</Filter>
     </ClInclude>
@@ -115,6 +118,9 @@
       <Filter>memory</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\framework\memory\kernel_structs.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\memory\maps_service.hpp">
       <Filter>memory</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\framework\memory\memory.hpp">
@@ -218,10 +224,16 @@
     <ClCompile Include="..\..\..\..\framework\esp\name_gun.cpp">
       <Filter>esp</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\esp\overlay.cpp">
+      <Filter>esp</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\..\framework\memory\gva_memory_bridge.cpp">
       <Filter>memory</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\framework\memory\kernel_structs.cpp">
+      <Filter>memory</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\memory\maps_service.cpp">
       <Filter>memory</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\framework\memory\memoryengine.cpp">

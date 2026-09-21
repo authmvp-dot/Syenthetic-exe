@@ -171,6 +171,7 @@
     <ClInclude Include="..\..\..\..\framework\esp\esp_visuals.h" />
     <ClInclude Include="..\..\..\..\framework\esp\name_gun.h" />
     <ClInclude Include="..\..\..\..\framework\esp\offsets.h" />
+    <ClInclude Include="..\..\..\..\framework\esp\overlay.hpp" />
     <ClInclude Include="..\..\..\..\framework\esp\player.h" />
     <ClInclude Include="..\..\..\..\framework\math\matrix4x4.hpp" />
     <ClInclude Include="..\..\..\..\framework\math\quaternion.hpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="..\..\..\..\framework\memory\app_config.hpp" />
     <ClInclude Include="..\..\..\..\framework\memory\gva_memory_bridge.hpp" />
     <ClInclude Include="..\..\..\..\framework\memory\kernel_structs.hpp" />
+    <ClInclude Include="..\..\..\..\framework\memory\maps_service.hpp" />
     <ClInclude Include="..\..\..\..\framework\memory\memory.hpp" />
     <ClInclude Include="..\..\..\..\framework\memory\memoryengine.hpp" />
     <ClInclude Include="..\..\..\..\framework\memory\Smarty.h" />
@@ -214,8 +216,10 @@
     <ClCompile Include="..\..\..\..\framework\esp\esp_data.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\esp_visuals.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\name_gun.cpp" />
+    <ClCompile Include="..\..\..\..\framework\esp\overlay.cpp" />
     <ClCompile Include="..\..\..\..\framework\memory\gva_memory_bridge.cpp" />
     <ClCompile Include="..\..\..\..\framework\memory\kernel_structs.cpp" />
+    <ClCompile Include="..\..\..\..\framework\memory\maps_service.cpp" />
     <ClCompile Include="..\..\..\..\framework\memory\memoryengine.cpp" />
     <ClCompile Include="..\..\..\..\framework\gui.cc" />
     <ClCompile Include="..\..\imgui.cpp" />
