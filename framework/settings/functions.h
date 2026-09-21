@@ -23,15 +23,10 @@
 inline ID3D11Device* g_pd3dDevice = nullptr;
 inline ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 inline IDXGISwapChain* g_pSwapChain = nullptr;
-inline IDXGISwapChain* g_pSwapChainMenu = nullptr;
-inline IDXGISwapChain* g_pSwapChainSelection = nullptr;
 inline bool                     g_SwapChainOccluded = false;
 inline UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 inline ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
-inline ID3D11RenderTargetView* g_pRenderTargetMenu = nullptr;
-inline ID3D11RenderTargetView* g_pRenderTargetSelection = nullptr;
-inline HWND g_hMenuWnd = nullptr;
-inline HWND g_hSelectionWnd = nullptr;
+inline HWND g_hwnd = nullptr;
 
 #define SCALE(...) scale_impl(__VA_ARGS__, var->c_dpi.dpi)
 
@@ -179,8 +174,6 @@ public:
 	float							deg_to_rad(float deg);
 
     void                            render();
-    void                            render_menu();
-    void                            render_selection();
 
 };
 

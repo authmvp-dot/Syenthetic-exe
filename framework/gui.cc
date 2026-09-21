@@ -1,7 +1,7 @@
 #include "settings/functions.h"
 #include "shader/blur.hpp"
 
-void c_gui::render_menu()
+void c_gui::render()
 {
 
 	gui->new_frame();
@@ -9,10 +9,10 @@ void c_gui::render_menu()
 		notify->setup_notify();
 
 		ImVec2 menu_size = SCALE(set->c_window.window_size);
-		gui->set_next_window_pos(ImVec2(0, 0));
+		gui->set_next_window_pos(SCALE(270, 15), ImGuiCond_FirstUseEver);
 		gui->set_next_window_size(menu_size);
 
-		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
+		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags);
 		{
 			// Native window dragging when clicking the 110px left sidebar or top 35px area
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -23,10 +23,10 @@ void c_gui::render_menu()
 				if ((mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + wsize.y) ||
 					(mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(35) && mouse.x >= wpos.x && mouse.x <= wpos.x + wsize.x))
 				{
-					if (g_hMenuWnd)
+					if (g_hwnd)
 					{
 						ReleaseCapture();
-						SendMessage(g_hMenuWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+						SendMessage(g_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 					}
 				}
 			}
@@ -525,35 +525,13 @@ void c_gui::render_menu()
 		}
 		gui->end();
 
-		gui->water_mark("watermark", var->c_watermark.watermark_content, static_cast<watermark_position>(var->c_watermark.watermark_position), &var->c_watermark.watermark);
-
-	}
-	gui->end_frame();
-
-}
-
-void c_gui::render_selection()
-{
-
-	gui->new_frame();
-	{
+		// 2. Circle Tab ("SELECTION") - Draggable separately inside the UI canvas!
 		gui->push_style_var(ImGuiStyleVar_WindowPadding, SCALE(15, 15));
 		gui->push_style_var(ImGuiStyleVar_ItemSpacing, SCALE(4, 0));
 		{
-			gui->set_next_window_pos(ImVec2(0, 0));
-			gui->set_next_window_size(SCALE(270, 260));
-			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
+			gui->set_next_window_pos(SCALE(15, 185), ImGuiCond_FirstUseEver);
+			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysAutoResize);
 			{
-				// Native window dragging: left-click on background or right-click anywhere in the selection window
-				if ((ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsAnyItemHovered()) || ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-				{
-					if (g_hSelectionWnd)
-					{
-						ReleaseCapture();
-						SendMessage(g_hSelectionWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-					}
-				}
-
 				const ImVec2 pos = GetWindowPos();
 				const ImVec2 size = GetWindowSize();
 
@@ -607,13 +585,10 @@ void c_gui::render_selection()
 			gui->end();
 		}
 		gui->pop_style_var(2);
+
+		gui->water_mark("watermark", var->c_watermark.watermark_content, static_cast<watermark_position>(var->c_watermark.watermark_position), &var->c_watermark.watermark);
+
 	}
 	gui->end_frame();
 
-}
-
-void c_gui::render()
-{
-	render_menu();
-	render_selection();
 }
