@@ -11,6 +11,7 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "iphlpapi.lib")
 
 #include <windows.h>
 #include <windowsx.h>
@@ -19,11 +20,15 @@
 #include <d3dx11.h>
 #include <dwmapi.h>
 #include <gdiplus.h>
+#include <iphlpapi.h>
+#include <icmpapi.h>
 #include <ctime>
 #include <string>
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <atomic>
+#include <thread>
 
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
@@ -92,106 +97,63 @@ static float GetRealCpuUsage()
     return cpu_percent;
 }
 
-typedef void* (*NvAPI_QueryInterface_t)(unsigned int offset);
-typedef int (*NvAPI_Initialize_t)();
-typedef int (*NvAPI_EnumPhysicalGPUs_t)(void* gpuHandles[64], int* pGpuCount);
-typedef int (*NvAPI_GPU_GetUsages_t)(void* hPhysicalGpu, unsigned int* pUsages);
+// ----------------------------------------------------
+// Real Internet Ping Monitoring (ms) via ICMP
+// ----------------------------------------------------
+static std::atomic<int> s_currentPingMs(-1);
+static std::atomic<bool> s_pingThreadRunning(true);
+static std::thread s_pingThread;
 
-static HMODULE s_hNvApi = nullptr;
-static NvAPI_QueryInterface_t s_NvAPI_QueryInterface = nullptr;
-static NvAPI_Initialize_t s_NvAPI_Initialize = nullptr;
-static NvAPI_EnumPhysicalGPUs_t s_NvAPI_EnumPhysicalGPUs = nullptr;
-static NvAPI_GPU_GetUsages_t s_NvAPI_GPU_GetUsages = nullptr;
-static void* s_nvGpuHandle = nullptr;
-static bool s_nvInitialized = false;
-static bool s_nvFailed = false;
-
-static void InitNvAPI()
+static void PingWorkerThreadFunc()
 {
-    if (s_nvInitialized || s_nvFailed) return;
-
-    s_hNvApi = LoadLibraryA("nvapi64.dll");
-    if (!s_hNvApi)
-        s_hNvApi = LoadLibraryA("nvapi.dll");
-
-    if (!s_hNvApi)
+    while (s_pingThreadRunning.load())
     {
-        s_nvFailed = true;
-        return;
+        HANDLE hIcmp = IcmpCreateFile();
+        if (hIcmp != INVALID_HANDLE_VALUE)
+        {
+            char sendData[8] = "synth";
+            BYTE replyBuffer[sizeof(ICMP_ECHO_REPLY) + 32] = { 0 };
+
+            // 1.1.1.1 (Cloudflare DNS - 0x01010101)
+            DWORD ret = IcmpSendEcho(hIcmp, 0x01010101, sendData, sizeof(sendData), NULL, replyBuffer, sizeof(replyBuffer), 700);
+            if (ret != 0)
+            {
+                PICMP_ECHO_REPLY pEcho = (PICMP_ECHO_REPLY)replyBuffer;
+                if (pEcho->Status == IP_SUCCESS)
+                    s_currentPingMs.store((int)pEcho->RoundTripTime);
+                else
+                    s_currentPingMs.store(-1);
+            }
+            else
+            {
+                // Fallback to 8.8.8.8 (Google DNS - 0x08080808)
+                DWORD ret2 = IcmpSendEcho(hIcmp, 0x08080808, sendData, sizeof(sendData), NULL, replyBuffer, sizeof(replyBuffer), 700);
+                if (ret2 != 0)
+                {
+                    PICMP_ECHO_REPLY pEcho2 = (PICMP_ECHO_REPLY)replyBuffer;
+                    if (pEcho2->Status == IP_SUCCESS)
+                        s_currentPingMs.store((int)pEcho2->RoundTripTime);
+                    else
+                        s_currentPingMs.store(-1);
+                }
+                else
+                {
+                    s_currentPingMs.store(-1);
+                }
+            }
+            IcmpCloseHandle(hIcmp);
+        }
+        else
+        {
+            s_currentPingMs.store(-1);
+        }
+
+        // Sleep ~1.5s between ping updates with responsive exit check
+        for (int i = 0; i < 15 && s_pingThreadRunning.load(); ++i)
+        {
+            Sleep(100);
+        }
     }
-
-    s_NvAPI_QueryInterface = (NvAPI_QueryInterface_t)GetProcAddress(s_hNvApi, "nvapi_QueryInterface");
-    if (!s_NvAPI_QueryInterface)
-    {
-        s_nvFailed = true;
-        return;
-    }
-
-    s_NvAPI_Initialize = (NvAPI_Initialize_t)s_NvAPI_QueryInterface(0x0150E828);
-    s_NvAPI_EnumPhysicalGPUs = (NvAPI_EnumPhysicalGPUs_t)s_NvAPI_QueryInterface(0xEBB63821);
-    s_NvAPI_GPU_GetUsages = (NvAPI_GPU_GetUsages_t)s_NvAPI_QueryInterface(0xE3640A56);
-
-    if (!s_NvAPI_Initialize || !s_NvAPI_EnumPhysicalGPUs || !s_NvAPI_GPU_GetUsages)
-    {
-        s_nvFailed = true;
-        return;
-    }
-
-    if (s_NvAPI_Initialize() != 0)
-    {
-        s_nvFailed = true;
-        return;
-    }
-
-    void* gpuHandles[64] = { 0 };
-    int gpuCount = 0;
-    if (s_NvAPI_EnumPhysicalGPUs(gpuHandles, &gpuCount) != 0 || gpuCount <= 0)
-    {
-        s_nvFailed = true;
-        return;
-    }
-
-    s_nvGpuHandle = gpuHandles[0];
-    s_nvInitialized = true;
-}
-
-static int QueryNvApiGpuUsage()
-{
-    if (!s_nvInitialized)
-    {
-        InitNvAPI();
-        if (!s_nvInitialized) return -1;
-    }
-
-    unsigned int usages[34] = { 0 };
-    usages[0] = (sizeof(unsigned int) * 34) | (1 << 16);
-    if (s_NvAPI_GPU_GetUsages(s_nvGpuHandle, usages) == 0)
-    {
-        return (int)usages[3];
-    }
-    return -1;
-}
-
-static int GetRealGpuUsage()
-{
-    static int s_lastGpuUsage = -1;
-    static DWORD s_lastGpuTick = 0;
-    DWORD now = GetTickCount();
-
-    if (now - s_lastGpuTick < 400 && s_lastGpuTick != 0)
-        return s_lastGpuUsage;
-
-    s_lastGpuTick = now;
-
-    int nvUsage = QueryNvApiGpuUsage();
-    if (nvUsage >= 0 && nvUsage <= 100)
-    {
-        s_lastGpuUsage = nvUsage;
-        return s_lastGpuUsage;
-    }
-
-    s_lastGpuUsage = -1;
-    return -1;
 }
 
 void UpdateHudWindow(float framerate)
@@ -277,7 +239,7 @@ void UpdateHudWindow(float framerate)
         fmt.SetAlignment(Gdiplus::StringAlignmentNear);
         fmt.SetLineAlignment(Gdiplus::StringAlignmentCenter);
 
-        float curX = 14.0f;
+        float curX = 13.0f;
         float centerY = height * 0.5f;
 
         // [Element 1] 2x2 Purple Grid Icon + "Synthetic"
@@ -285,22 +247,18 @@ void UpdateHudWindow(float framerate)
         g.FillRectangle(&iconBrush, curX + 5.6f, centerY - 4.5f, 4.2f, 4.2f);
         g.FillRectangle(&iconBrush, curX, centerY + 1.2f, 4.2f, 4.2f);
         g.FillRectangle(&iconBrush, curX + 5.6f, centerY + 1.2f, 4.2f, 4.2f);
-        curX += 9.8f + 7.0f;
+        curX += 9.8f + 5.0f;
 
         Gdiplus::RectF bound;
         g.MeasureString(L"Synthetic", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(L"Synthetic", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 12.0f;
+        curX += bound.Width + 7.0f;
 
         // Divider
-        g.DrawLine(&divPen, curX, centerY - 6.0f, curX, centerY + 6.0f);
-        curX += 12.0f;
+        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
+        curX += 7.0f;
 
-        // [Element 2] User / PC Profile Icon + PC Name
-        g.DrawEllipse(&iconPen, curX + 2.0f, centerY - 5.5f, 5.0f, 5.0f);
-        g.DrawArc(&iconPen, curX, centerY + 0.5f, 9.0f, 6.0f, 180, 180);
-        curX += 9.0f + 6.0f;
-
+        // [Element 2] PC / User Name (No Icon)
         char sysUser[128] = { 0 };
         DWORD sysLen = sizeof(sysUser);
         if (!GetUserNameA(sysUser, &sysLen) || sysUser[0] == '\0')
@@ -313,67 +271,68 @@ void UpdateHudWindow(float framerate)
 
         g.MeasureString(wuser.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wuser.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 12.0f;
+        curX += bound.Width + 7.0f;
 
         // Divider
-        g.DrawLine(&divPen, curX, centerY - 6.0f, curX, centerY + 6.0f);
-        curX += 12.0f;
+        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
+        curX += 7.0f;
 
         // [Element 3] 3-Bar Chart Icon + Dynamic FPS
         g.FillRectangle(&purpleBrush, curX, centerY - 1.0f, 2.2f, 6.5f);
         g.FillRectangle(&purpleBrush, curX + 3.4f, centerY - 5.5f, 2.2f, 11.0f);
         g.FillRectangle(&purpleBrush, curX + 6.8f, centerY - 3.5f, 2.2f, 9.0f);
-        curX += 9.0f + 6.0f;
+        curX += 9.0f + 4.5f;
 
         int fps_val = (int)roundf(framerate > 0.f ? framerate : 144.f);
         std::wstring wfps = std::to_wstring(fps_val) + L" FPS";
         g.MeasureString(wfps.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wfps.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 12.0f;
+        curX += bound.Width + 7.0f;
 
         // Divider
-        g.DrawLine(&divPen, curX, centerY - 6.0f, curX, centerY + 6.0f);
-        curX += 12.0f;
+        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
+        curX += 7.0f;
 
         // [Element 4] Mini CPU Chip Icon + Real CPU %
         g.DrawRectangle(&iconPen, curX + 1.0f, centerY - 4.5f, 8.0f, 8.0f);
         g.FillRectangle(&iconBrush, curX + 3.0f, centerY - 2.5f, 4.0f, 4.0f);
-        curX += 10.0f + 6.0f;
+        curX += 9.0f + 4.5f;
 
         int cpu_val = (int)roundf(GetRealCpuUsage());
         std::wstring wcpu = L"CPU " + std::to_wstring(cpu_val) + L" %";
         g.MeasureString(wcpu.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wcpu.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 12.0f;
+        curX += bound.Width + 7.0f;
 
         // Divider
-        g.DrawLine(&divPen, curX, centerY - 6.0f, curX, centerY + 6.0f);
-        curX += 12.0f;
+        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
+        curX += 7.0f;
 
-        // [Element 5] Mini GPU Card Icon + Real GPU %
-        g.DrawRectangle(&iconPen, curX, centerY - 4.5f, 12.0f, 8.0f);
-        g.DrawEllipse(&iconPen, curX + 3.0f, centerY - 2.5f, 4.0f, 4.0f);
-        curX += 12.0f + 6.0f;
+        // [Element 5] Internet Ping Icon + Real Ping
+        g.FillEllipse(&iconBrush, curX + 3.8f, centerY + 2.2f, 2.4f, 2.4f);
+        g.DrawArc(&iconPen, curX + 1.8f, centerY - 1.6f, 6.4f, 5.0f, 215, 110);
+        g.DrawArc(&iconPen, curX - 0.2f, centerY - 5.2f, 10.4f, 8.4f, 215, 110);
+        curX += 10.2f + 4.5f;
 
-        int gpu_val = GetRealGpuUsage();
-        std::wstring wgpu;
-        if (gpu_val >= 0)
-            wgpu = L"GPU " + std::to_wstring(gpu_val) + L" %";
+        int ping_val = s_currentPingMs.load();
+        std::wstring wping;
+        if (ping_val >= 0)
+            wping = L"Ping " + std::to_wstring(ping_val) + L" ms";
         else
-            wgpu = L"GPU N/A";
-        g.MeasureString(wgpu.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
-        g.DrawString(wgpu.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 12.0f;
+            wping = L"Ping N/A";
+        g.MeasureString(wping.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(wping.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        curX += bound.Width + 7.0f;
 
         // Divider
-        g.DrawLine(&divPen, curX, centerY - 6.0f, curX, centerY + 6.0f);
-        curX += 12.0f;
+        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
+        curX += 7.0f;
 
-        // [Element 6] Clock Icon + Real Time (Indian 12-hr AM/PM format)
+        // [Element 6] Clock Icon + Real Time (Indian 12-hr AM/PM format, plenty of room)
         g.DrawEllipse(&iconPen, curX, centerY - 5.0f, 10.0f, 10.0f);
         g.DrawLine(&iconPen, curX + 5.0f, centerY, curX + 5.0f, centerY - 3.2f);
         g.DrawLine(&iconPen, curX + 5.0f, centerY, curX + 7.2f, centerY);
-        curX += 10.0f + 6.0f;
+        curX += 10.0f + 4.5f;
 
         char time_str[32] = { 0 };
         // Query user's exact Windows clock format (e.g. "9.53.18 PM" / "9:53:18 PM")
@@ -391,7 +350,7 @@ void UpdateHudWindow(float framerate)
         MultiByteToWideChar(CP_ACP, 0, time_str, -1, wtime, 64);
 
         g.MeasureString(wtime, -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
-        g.DrawString(wtime, -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        g.DrawString(wtime, -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 8.0f, 18.0f), &fmt, &whiteBrush);
     }
 
     POINT ptSrc = { 0, 0 };
@@ -598,6 +557,9 @@ int MainApp()
     bool menu_open = true;
     DWORD lastHudUpdate = 0;
 
+    s_pingThreadRunning.store(true);
+    s_pingThread = std::thread(PingWorkerThreadFunc);
+
     while (!done)
     {
         MSG msg;
@@ -692,6 +654,10 @@ int MainApp()
         HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
+
+    s_pingThreadRunning.store(false);
+    if (s_pingThread.joinable())
+        s_pingThread.join();
 
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
