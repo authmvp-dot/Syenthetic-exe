@@ -28,3 +28,5 @@ build_output/
 /Synthetic.exe
 /Synthetic-Release-x64.zip
 *.zip
+leakproject/
+leakproject

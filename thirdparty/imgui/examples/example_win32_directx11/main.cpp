@@ -542,7 +542,6 @@ int MainApp()
     FWork::Data::StartThread();
 
     bool done = false;
-    bool menu_open = true;
     DWORD lastHudUpdate = 0;
 
     s_pingThreadRunning.store(true);

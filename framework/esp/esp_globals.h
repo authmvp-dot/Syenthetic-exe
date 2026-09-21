@@ -83,6 +83,8 @@ public:
         float inagame_color[4] = { 0.87f, 0.46f, 0.46f, 1.0f };
         float RadarSize = 120.0f;
         float RadarRange = 150.0f;
+        float RadarPosX = 120.0f;
+        float RadarPosY = 120.0f;
 
         // Offsets & Tuning
         float HipWidthScale = 0.19f;
