@@ -1,14 +1,15 @@
-
 #include "../../framework/settings/functions.h"
 #include "../../framework/data/font.h"
 #include "../../framework/data/texture.h"
 #include "../../framework/data/imgui_freetype.h"
 
 #pragma comment(lib, "d3dx11.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 #include <d3d11.h>
 #include <tchar.h>
 #include <d3dx11.h>
+#include <dwmapi.h>
 
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
@@ -18,9 +19,38 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 int main(int, char**)
 {
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Example", nullptr };
+    RECT desktop_rect = { 0, 0, 0, 0 };
+    EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR, HDC, LPRECT rc, LPARAM lp) -> BOOL {
+        LPRECT total = (LPRECT)lp;
+        UnionRect(total, total, rc);
+        return TRUE;
+    }, (LPARAM)&desktop_rect);
+
+    int screen_x = desktop_rect.left;
+    int screen_y = desktop_rect.top;
+    int screen_w = desktop_rect.right - desktop_rect.left;
+    int screen_h = desktop_rect.bottom - desktop_rect.top;
+
+    if (screen_w <= 0 || screen_h <= 0)
+    {
+        screen_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        screen_y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        screen_w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        screen_h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    }
+    if (screen_w <= 0) screen_w = GetSystemMetrics(SM_CXSCREEN);
+    if (screen_h <= 0) screen_h = GetSystemMetrics(SM_CYSCREEN);
+
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"SyntheticOverlay", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"DX11", WS_POPUP, 0, 0, 1920, 1080, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowExW(
+        WS_EX_TOPMOST | WS_EX_LAYERED,
+        wc.lpszClassName,
+        L"Synthetic Overlay",
+        WS_POPUP,
+        screen_x, screen_y, screen_w, screen_h,
+        nullptr, nullptr, wc.hInstance, nullptr
+    );
 
     if (!CreateDeviceD3D(hwnd))
     {
@@ -28,6 +58,10 @@ int main(int, char**)
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
+
+    SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 255, LWA_ALPHA);
+    MARGINS margins = { -1, -1, -1, -1 };
+    DwmExtendFrameIntoClientArea(hwnd, &margins);
 
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
@@ -55,7 +89,6 @@ int main(int, char**)
         set->c_font.icon[6] = io.Fonts->AddFontFromMemoryTTF(icon2, sizeof(icon2), 96.f, &cfg, io.Fonts->GetGlyphRangesCyrillic());
 
         set->c_font.name = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 18.f, &cfg, io.Fonts->GetGlyphRangesCyrillic());
-
     }
 
     ImGui_ImplWin32_Init(hwnd);
@@ -67,6 +100,8 @@ int main(int, char**)
     }
 
     bool done = false;
+    bool menu_open = true;
+
     while (!done)
     {
         MSG msg;
@@ -78,6 +113,28 @@ int main(int, char**)
                 done = true;
         }
         if (done) break;
+
+        // Press INSERT to toggle menu on/off
+        if (GetAsyncKeyState(VK_INSERT) & 1)
+        {
+            menu_open = !menu_open;
+            if (menu_open)
+            {
+                SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
+                SetForegroundWindow(hwnd);
+            }
+            else
+            {
+                SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+            }
+        }
+
+        // Press END to exit
+        if (GetAsyncKeyState(VK_END) & 1)
+        {
+            done = true;
+            break;
+        }
 
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
@@ -124,12 +181,12 @@ int main(int, char**)
             ImGui_ImplDX11_CreateDeviceObjects();
         }
 
-
+        if (menu_open)
         {
             gui->render();
         }
 
-        const float clear_color_with_alpha[4] = { 0.f, 0.f, 0.f, 1.f };
+        const float clear_color_with_alpha[4] = { 0.f, 0.f, 0.f, 0.f };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -152,7 +209,6 @@ int main(int, char**)
 
 bool CreateDeviceD3D(HWND hWnd)
 {
-
     DXGI_SWAP_CHAIN_DESC sd;
     ZeroMemory(&sd, sizeof(sd));
     sd.BufferCount = 2;
@@ -213,6 +269,33 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     switch (msg)
     {
+    case WM_DISPLAYCHANGE:
+    {
+        RECT d_rect = { 0, 0, 0, 0 };
+        EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR, HDC, LPRECT rc, LPARAM lp) -> BOOL {
+            LPRECT total = (LPRECT)lp;
+            UnionRect(total, total, rc);
+            return TRUE;
+        }, (LPARAM)&d_rect);
+
+        int sx = d_rect.left;
+        int sy = d_rect.top;
+        int sw = d_rect.right - d_rect.left;
+        int sh = d_rect.bottom - d_rect.top;
+
+        if (sw <= 0 || sh <= 0)
+        {
+            sx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            sy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            sw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            sh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        }
+        if (sw <= 0) sw = GetSystemMetrics(SM_CXSCREEN);
+        if (sh <= 0) sh = GetSystemMetrics(SM_CYSCREEN);
+
+        SetWindowPos(hWnd, HWND_TOPMOST, sx, sy, sw, sh, SWP_SHOWWINDOW);
+        return 0;
+    }
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
             return 0;

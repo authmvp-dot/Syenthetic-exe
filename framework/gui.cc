@@ -8,9 +8,11 @@ void c_gui::render()
 	{
 		notify->setup_notify();
 
-		draw->add_image(GetBackgroundDrawList(), set->c_texture.bg, { 0, 0 }, { 1920, 1080 }, { 0, 0 }, { 1, 1 }, gui->get_clr(clr->c_other_clr.white_clr));
-
-		gui->set_next_window_size(SCALE(set->c_window.window_size));
+		int primary_w = GetSystemMetrics(SM_CXSCREEN);
+		int primary_h = GetSystemMetrics(SM_CYSCREEN);
+		ImVec2 menu_size = SCALE(set->c_window.window_size);
+		gui->set_next_window_pos(ImVec2((primary_w - menu_size.x) * 0.5f, (primary_h - menu_size.y) * 0.5f), ImGuiCond_FirstUseEver);
+		gui->set_next_window_size(menu_size);
 
 		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags);
 		{
@@ -29,7 +31,7 @@ void c_gui::render()
 				style->ItemSpacing = SCALE(set->c_window.item_spacing);
 			}
 
-			draw_background_blur(draw_list, g_pSwapChain, g_pd3dDevice, g_pd3dDeviceContext, GetWindowPos(), GetWindowPos() + GetWindowSize(), style->WindowRounding);
+			// draw_background_blur(draw_list, g_pSwapChain, g_pd3dDevice, g_pd3dDeviceContext, GetWindowPos(), GetWindowPos() + GetWindowSize(), style->WindowRounding);
 			
 			draw->add_rect_filled(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_layout), SCALE(set->c_window.general_rounding));
 			draw->add_rect(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_stroke), SCALE(set->c_window.general_rounding));
@@ -512,7 +514,7 @@ void c_gui::render()
 		gui->push_style_var(ImGuiStyleVar_WindowPadding, SCALE(15, 15));
 		gui->push_style_var(ImGuiStyleVar_ItemSpacing, SCALE(4, 0));
 		{
-			gui->set_next_window_pos(SCALE(20, 20));
+			gui->set_next_window_pos(SCALE(20, 20), ImGuiCond_FirstUseEver);
 			gui->begin({ "SELECTION" }, { 0 }, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysAutoResize);
 			{
 				const ImVec2 pos = GetWindowPos();
