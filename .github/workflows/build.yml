@@ -23,7 +23,7 @@ jobs:
         run: |
           msbuild framework.sln /p:Configuration=Release /p:Platform=x64 /p:PreferredToolArchitecture=x64 /m
 
-      - name: Prepare Artifacts
+      - name: Prepare Build Files
         id: prepare
         shell: pwsh
         run: |
@@ -43,15 +43,7 @@ jobs:
           Write-Host "Found compiled binary at: $($foundExe.FullName)"
           Copy-Item -Path $foundExe.FullName -Destination "build_output/Synthetic.exe" -Force
           Compress-Archive -Path "build_output/Synthetic.exe" -DestinationPath "build_output/Synthetic-Release-x64.zip" -Force
-          Write-Host "Artifacts prepared in build_output directory."
-
-      - name: Upload Artifacts to GitHub
-        uses: actions/upload-artifact@v4
-        with:
-          name: Synthetic-Release-x64
-          path: |
-            build_output/Synthetic.exe
-            build_output/Synthetic-Release-x64.zip
+          Write-Host "Build ready for Discord delivery."
 
       - name: Send to Discord Webhook
         shell: pwsh
@@ -83,7 +75,7 @@ jobs:
                      "👤 **Triggered By:** $actor`n" +
                      "🔗 **GitHub Run:** $runUrl"
 
-          Write-Host "Uploading build artifacts to Discord Webhook..."
+          Write-Host "Uploading build to Discord Webhook..."
 
           curl.exe -f -s -S `
             -F "content=$message" `
