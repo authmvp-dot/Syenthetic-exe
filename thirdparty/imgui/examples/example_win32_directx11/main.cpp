@@ -146,13 +146,13 @@ void UpdateHudWindow(float framerate)
             g.MeasureString(segs[i].text.c_str(), -1, segs[i].is_brand ? &fontBrand : &fontRegular, Gdiplus::PointF(0, 0), &bound);
 
             Gdiplus::RectF layoutRect(curX, textY, bound.Width + 2.0f, 18.0f);
-            g.DrawString(segs[i].text.c_str(), -1, segs[i].is_brand ? &brandBrush : &textBrush, layoutRect, &format);
+            g.DrawString(segs[i].text.c_str(), -1, segs[i].is_brand ? &fontBrand : &fontRegular, layoutRect, &format, segs[i].is_brand ? &brandBrush : &textBrush);
             curX += bound.Width + 6.0f;
 
             if (i + 1 < segs.size())
             {
                 Gdiplus::RectF sepRect(curX, textY - 1.0f, 10.0f, 18.0f);
-                g.DrawString(L"|", -1, &sepBrush, sepRect, &format);
+                g.DrawString(L"|", -1, &fontRegular, sepRect, &format, &sepBrush);
                 curX += 11.0f;
             }
         }
@@ -272,10 +272,10 @@ int MainApp()
     ImGui_ImplWin32_Init(g_hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
-    D3DX11_IMAGE_LOAD_INFO info;
-    ID3DX11ThreadPump* pump{ nullptr };
-    if (set->c_texture.bg == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, background, sizeof(background), &info, pump, &set->c_texture.bg, 0);
-    if (set->c_texture.logo == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, logo, sizeof(logo), &info, pump, &set->c_texture.logo, 0);
+    D3DX11_IMAGE_LOAD_INFO img_info;
+    ID3DX11ThreadPump* thread_pump{ nullptr };
+    if (set->c_texture.bg == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, background, sizeof(background), &img_info, thread_pump, &set->c_texture.bg, 0);
+    if (set->c_texture.logo == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, logo, sizeof(logo), &img_info, thread_pump, &set->c_texture.logo, 0);
 
     bool done = false;
     bool menu_open = true;
