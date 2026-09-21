@@ -1,9 +1,9 @@
+#include "../settings/functions.h"
 #include "overlay.hpp"
 #include "esp_visuals.h"
 #include "esp_globals.h"
 #include "esp_data.h"
 #include "offsets.h"
-#include "../settings/functions.h"
 
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
