@@ -47,7 +47,13 @@ bool c_widget::begin_popup(std::string_view name, float size_w, const ImVec2& po
     gui->push_style_color(ImGuiCol_WindowBg, gui->get_clr(clr->c_child.layout));
     gui->push_style_color(ImGuiCol_Border, gui->get_clr(clr->c_child.stroke));
 
-    gui->set_next_window_pos(g.LastItemData.Rect.GetBL() + position);
+    ImVec2 popup_pos = g.LastItemData.Rect.GetBL() + position;
+    if (popup_pos.x + SCALE(size_w) > g.IO.DisplaySize.x - SCALE(10.f))
+        popup_pos.x = g.IO.DisplaySize.x - SCALE(size_w) - SCALE(10.f);
+    if (popup_pos.y < SCALE(10.f))
+        popup_pos.y = SCALE(10.f);
+
+    gui->set_next_window_pos(popup_pos);
     gui->set_next_window_size(ImVec2(SCALE(size_w), content_size.y));
 
     ImGuiWindowFlags popup_flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse;

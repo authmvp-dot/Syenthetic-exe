@@ -13,6 +13,7 @@
 #pragma comment(lib, "gdiplus.lib")
 
 #include <windows.h>
+#include <windowsx.h>
 #include <d3d11.h>
 #include <tchar.h>
 #include <d3dx11.h>
@@ -246,10 +247,14 @@ int MainApp()
     if (primary_w <= 0) primary_w = 1920;
     if (primary_h <= 0) primary_h = 1080;
 
-    int win_w = (int)set->c_window.window_size.x;
-    int win_h = (int)set->c_window.window_size.y;
-    int win_x = (primary_w - win_w) / 2;
-    int win_y = (primary_h - win_h) / 2;
+    int extra_canvas_w = 220;
+    int extra_canvas_h = 160;
+    int menu_w = (int)set->c_window.window_size.x;
+    int menu_h = (int)set->c_window.window_size.y;
+    int win_w = menu_w + extra_canvas_w;
+    int win_h = menu_h + extra_canvas_h;
+    int win_x = (primary_w - menu_w) / 2;
+    int win_y = (primary_h - menu_h) / 2;
 
     // 1. Main Menu Window Class
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"SyntheticWindowClass", nullptr };
@@ -525,11 +530,45 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     switch (msg)
     {
+    case WM_NCHITTEST:
+    {
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        ScreenToClient(hWnd, &pt);
+
+        float dpi = (var && var->c_dpi.dpi > 0.0f) ? var->c_dpi.dpi : 1.0f;
+        float menu_w = (set ? set->c_window.window_size.x : 860.f) * dpi;
+        float menu_h = (set ? set->c_window.window_size.y : 630.f) * dpi;
+
+        // Inside the main menu rectangle: handle clicks
+        if (pt.x >= 0 && pt.x <= (int)menu_w && pt.y >= 0 && pt.y <= (int)menu_h)
+            return HTCLIENT;
+
+        // Outside main menu: check if mouse is over any active popup or overlay window
+        ImGuiContext* g = GImGui;
+        if (g)
+        {
+            for (ImGuiWindow* w : g->Windows)
+            {
+                if (w && w->Active && !w->Hidden && w->Name && 
+                    strcmp(w->Name, "NAME") != 0 && strcmp(w->Name, "watermark") != 0)
+                {
+                    if (pt.x >= w->Pos.x && pt.x <= w->Pos.x + w->Size.x &&
+                        pt.y >= w->Pos.y && pt.y <= w->Pos.y + w->Size.y)
+                    {
+                        return HTCLIENT;
+                    }
+                }
+            }
+        }
+
+        // Anywhere else in the transparent canvas: click through to desktop!
+        return HTTRANSPARENT;
+    }
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-        int w = (int)set->c_window.window_size.x;
-        int h = (int)set->c_window.window_size.y;
+        int w = (int)set->c_window.window_size.x + 220;
+        int h = (int)set->c_window.window_size.y + 160;
         mmi->ptMinTrackSize.x = w;
         mmi->ptMinTrackSize.y = h;
         mmi->ptMaxTrackSize.x = w;
