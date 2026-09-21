@@ -4,6 +4,10 @@
 #include "../../framework/data/font.h"
 #include "../../framework/data/texture.h"
 #include "../../framework/data/imgui_freetype.h"
+#include "../../framework/esp/esp_data.h"
+#include "../../framework/esp/esp_visuals.h"
+#include "../../framework/esp/esp_globals.h"
+#include "../../framework/esp/name_gun.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -534,6 +538,9 @@ int MainApp()
     if (set->c_texture.bg == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, background, sizeof(background), &img_info, thread_pump, &set->c_texture.bg, 0);
     if (set->c_texture.logo == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, logo, sizeof(logo), &img_info, thread_pump, &set->c_texture.logo, 0);
 
+    Namegun::Init();
+    FWork::Data::StartThread();
+
     bool done = false;
     bool menu_open = true;
     DWORD lastHudUpdate = 0;
@@ -626,6 +633,7 @@ int MainApp()
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
 
+        ESP::Render();
         gui->render();
 
         UpdateHitTestRegion(g_hwnd);
@@ -638,6 +646,8 @@ int MainApp()
         HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
+
+    FWork::Data::StopThread();
 
     s_pingThreadRunning.store(false);
     if (s_pingThread.joinable())

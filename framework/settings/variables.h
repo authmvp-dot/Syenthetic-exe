@@ -51,7 +51,7 @@ public:
 
 	struct
 	{
-		int notify_position = 0;
+		int notify_position = 3; // bottom_right
 
 	} c_notify;
 
@@ -173,15 +173,37 @@ public:
 		bool point_show_binds = false;
 		int point_key = 0;
 
+		bool connect_lib = false;
+		bool lib_connected = false;
+		bool connect_requested = false;
+
 	} c_settings;
 
 	struct
 	{
-		bool esp = true;
+		bool esp = false;
 		bool esp_holding = false;
 		bool esp_value = false;
 		bool esp_show_binds = false;
 		int esp_key = 0;
+
+		bool auto_refresh = false;
+		bool refresh_requested = false;
+
+		int box_selection = 1;
+		std::vector<std::string> box_list = { "2D Box", "Corner Box" };
+		float box_color[4] = { 1.f, 1.f, 1.f, 1.f };
+
+		bool healthbar = true;
+		int healthbar_selection = 2;
+		std::vector<std::string> healthbar_list = { "Top", "Left", "Below" };
+
+		bool headdot = true;
+		float headdot_color[4] = { 1.f, 0.2f, 0.2f, 1.f };
+
+		int max_distance = 250;
+		bool distance = true;
+		float distance_color[4] = { 0.8f, 0.8f, 0.8f, 1.f };
 
 		bool through_walls = true;
 
@@ -190,7 +212,7 @@ public:
 
 		bool dynamic_boxes = false;
 
-		bool ingame_radar = true;
+		bool ingame_radar = false;
 		float inagame_color[4] = { 0.87f, 0.46f, 0.46f, 1.f };
 	} c_esp;
 
@@ -240,9 +262,10 @@ public:
 	struct
 	{
 		bool skeleton = true;
+		float skeleton_color[4] = { 1.f, 1.f, 1.f, 1.f };
 
 		int snaplines_selection = 1;
-		std::vector<std::string> snaplines_list = { "Top", "Bottom", "Left", "Right" };
+		std::vector<std::string> snaplines_list = { "Top", "Bottom", "Left", "Right", "Crosshair" };
 
 		bool weapon = true;
 		float weapon_color[4] = { 1.f, 1.f, 1.f, 1.f };

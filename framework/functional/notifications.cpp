@@ -51,6 +51,9 @@ void c_notify::render_notify(int notification_index, float notification_alpha, f
 
     gui->set_next_window_size(ImVec2(padding_x + font_width, SCALE(60)));
 
+    float menu_w = SCALE(set->c_window.window_size.x);
+    float menu_h = SCALE(set->c_window.window_size.y);
+
     ImVec2 position;
     switch (notification_position)
     {
@@ -58,13 +61,13 @@ void c_notify::render_notify(int notification_index, float notification_alpha, f
         position = ImVec2(notification_offset, padding_x + notification_index * padding_y);
         break;
     case top_right:
-        position = ImVec2(GetIO().DisplaySize.x - ((font_width + padding_x) + notification_offset), padding_x + notification_index * padding_y);
+        position = ImVec2(menu_w - ((font_width + padding_x) + notification_offset), padding_x + notification_index * padding_y);
         break;
     case bottom_left:
-        position = ImVec2(notification_offset, (GetIO().DisplaySize.y - padding_y) - notification_index * padding_y);
+        position = ImVec2(notification_offset, (menu_h - padding_y) - notification_index * padding_y);
         break;
     case bottom_right:
-        position = ImVec2(GetIO().DisplaySize.x - ((font_width + padding_x) + notification_offset), (GetIO().DisplaySize.y - padding_y) - notification_index * padding_y);
+        position = ImVec2(menu_w - ((font_width + padding_x) + notification_offset), (menu_h - padding_y) - notification_index * padding_y);
         break;
     }
 
@@ -92,6 +95,7 @@ void c_notify::render_notify(int notification_index, float notification_alpha, f
 
         { // decorations
             draw->add_rect_filled(draw_list, { position.x, position.y }, position + content_region, gui->get_clr(clr->c_window.layout), gui_style->WindowRounding);
+            draw->add_rect(draw_list, { position.x, position.y }, position + content_region, gui->get_clr(clr->c_window.stroke), gui_style->WindowRounding);
             draw->render_text(draw_list, set->c_font.inter_medium[1], { position.x + SCALE(10), position.y }, { position.x + CalcTextSize(notification_text.data()).x + SCALE(60), position.y + SCALE(40) }, gui->get_clr(clr->c_text.text_active), notification_text.data(), NULL, NULL, { 0.0, 0.5 }, NULL);
 
             draw->add_rect_filled(draw_list, { position.x + SCALE(10), position.y + (content_region.y - SCALE(15)) }, { position.x + content_region.x - SCALE(10), position.y + (content_region.y - SCALE(10)) }, gui->get_clr(clr->c_element.layout), SCALE((10.f)));

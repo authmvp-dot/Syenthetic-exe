@@ -1,11 +1,30 @@
 #include "settings/functions.h"
 #include "shader/blur.hpp"
+#include "esp/esp_globals.h"
+#include "esp/esp_data.h"
 
 void c_gui::render()
 {
 
 	gui->new_frame();
 	{
+		// Sync UI settings into runtime ESP globals
+		g_Globals.Visuals.Enable = var->c_esp.esp;
+		g_Globals.EspConfig.AutoRefresh = var->c_settings.connect_lib || var->c_esp.auto_refresh;
+		g_Globals.Visuals.Box = (var->c_esp.box_selection >= 0);
+		g_Globals.Visuals.players_box = var->c_esp.box_selection;
+		g_Globals.Visuals.Skeleton = var->c_skeleton.skeleton;
+		g_Globals.Visuals.Lines = (var->c_skeleton.snaplines_selection >= 0);
+		g_Globals.Visuals.EspLines = var->c_skeleton.snaplines_selection;
+		g_Globals.Visuals.HealthBar = var->c_esp.healthbar;
+		g_Globals.Visuals.players_healthbar = var->c_esp.healthbar_selection;
+		g_Globals.Visuals.HeadDot = var->c_esp.headdot;
+		g_Globals.Visuals.ESPWeapon = var->c_skeleton.weapon;
+		g_Globals.Visuals.Name = var->c_skeleton.nickname;
+		g_Globals.Visuals.Distance = var->c_esp.distance;
+		g_Globals.Visuals.DistanceEsp = var->c_esp.max_distance;
+		g_Globals.Visuals.Radar = var->c_esp.ingame_radar;
+
 		notify->setup_notify();
 
 		ImVec2 menu_size = SCALE(set->c_window.window_size);
@@ -100,58 +119,121 @@ void c_gui::render()
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			// 2. Top Middle Panel Title: "Mvp Cheats Aimkill" with smooth glowing animation
+			// 2. Top Middle Panel Title: Modern 3D Revolving Rotary Wave & Dual 360° Gyro Emblems
 			{
 				float title_center_x = (content_left + content_right) * 0.5f;
 				float title_center_y = pos.y + SCALE(36.0f);
 
 				float time = (float)ImGui::GetTime();
-				float pulse = (sinf(time * 2.8f) + 1.0f) * 0.5f;
 				ImVec4 acc = clr->c_other_clr.accent_clr;
 
-				ImVec2 size_mvp = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, "Mvp Cheats ");
-				ImVec2 size_aim = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, "Aimkill");
-				float total_w = size_mvp.x + size_aim.x;
+				const char* full_title = "Mvp Cheats Aimkill";
+				const int total_chars = 18;
+				const int split_idx = 11; // Index where "Aimkill" begins
+
+				float total_w = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, full_title).x;
 				float start_x = title_center_x - total_w * 0.5f;
-				float start_y = title_center_y - size_mvp.y * 0.5f;
+				float font_h = set->c_font.name->FontSize;
+				float base_y = title_center_y - font_h * 0.5f;
 
-				// Glowing backlit aura behind "Aimkill"
-				ImU32 glow_col = gui->get_clr(acc, 0.18f + pulse * 0.32f);
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x - 1.5f, start_y }, glow_col, "Aimkill");
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x + 1.5f, start_y }, glow_col, "Aimkill");
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y - 1.5f }, glow_col, "Aimkill");
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y + 1.5f }, glow_col, "Aimkill");
+				// --- Dual 360° Rotating Gyro Diamond Emblems on Left & Right ---
+				auto draw_rotating_emblem = [&](ImVec2 center, float angle, ImVec4 emblem_col)
+				{
+					float r = SCALE(6.0f);
+					float cos_a = cosf(angle);
+					float sin_a = sinf(angle);
 
-				// Crisp "Mvp Cheats " with subtle metallic shimmer
-				ImVec4 col_mvp = ImLerp(ImVec4(0.88f, 0.88f, 0.94f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f), pulse * 0.35f);
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x, start_y }, gui->get_clr(col_mvp), "Mvp Cheats ");
+					ImVec2 p[4] = {
+						{ center.x + r * cos_a, center.y + r * sin_a },
+						{ center.x - r * sin_a, center.y + r * cos_a },
+						{ center.x - r * cos_a, center.y - r * sin_a },
+						{ center.x + r * sin_a, center.y - r * cos_a }
+					};
 
-				// Glowing neon "Aimkill"
-				ImVec4 col_aim = ImLerp(acc, ImVec4(1.0f, 0.42f, 0.52f, 1.0f), pulse * 0.40f);
-				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y }, gui->get_clr(col_aim), "Aimkill");
+					for (int k = 0; k < 4; ++k)
+					{
+						draw_list->AddLine(p[k], p[(k + 1) % 4], gui->get_clr(emblem_col, 0.85f), 1.4f);
+					}
 
-				// Smooth glowing underline energy beam
-				float beam_w = (total_w + SCALE(26.0f)) * (0.86f + pulse * 0.14f);
-				float beam_y = start_y + size_mvp.y + SCALE(5.5f);
+					// Inner revolving accent cross
+					float r_in = r * 0.5f;
+					draw_list->AddLine({ center.x - r_in * cos_a, center.y - r_in * sin_a },
+					                   { center.x + r_in * cos_a, center.y + r_in * sin_a },
+					                   gui->get_clr(clr->c_other_clr.white_clr, 0.9f), 1.2f);
+
+					draw_list->AddCircleFilled(center, SCALE(1.4f), gui->get_clr(emblem_col, 1.0f));
+				};
+
+				float rot_speed = time * 2.2f;
+				draw_rotating_emblem({ start_x - SCALE(20.0f), title_center_y }, rot_speed, acc);
+				draw_rotating_emblem({ start_x + total_w + SCALE(20.0f), title_center_y }, -rot_speed, acc);
+
+				// --- Letter-by-Letter 3D Revolving Rotary Wave ---
+				float cur_x = start_x;
+				for (int i = 0; i < total_chars; ++i)
+				{
+					char ch_str[2] = { full_title[i], '\0' };
+					float ch_w = set->c_font.name->CalcTextSizeA(font_h, FLT_MAX, -1, ch_str).x;
+
+					if (full_title[i] == ' ')
+					{
+						cur_x += ch_w;
+						continue;
+					}
+
+					// Staggered rotary cylinder angle
+					float angle = time * 3.2f - (float)i * 0.28f;
+					float rot_y = sinf(angle) * SCALE(3.5f);
+					float depth = cosf(angle); // 3D depth lighting factor (-1 to +1)
+
+					ImVec4 char_col;
+					if (i < split_idx)
+					{
+						// "Mvp Cheats" - Metallic Silver with dynamic rotary depth lighting
+						float bright = 0.78f + (depth * 0.5f + 0.5f) * 0.22f;
+						char_col = ImVec4(bright * 0.92f, bright * 0.94f, bright, 1.0f);
+					}
+					else
+					{
+						// "Aimkill" - Glowing accent with smooth cylindrical highlight
+						float bright = 0.75f + (depth * 0.5f + 0.5f) * 0.35f;
+						char_col = ImVec4(ImMin(acc.x * bright, 1.0f), ImMin(acc.y * bright, 1.0f), ImMin(acc.z * bright, 1.0f), 1.0f);
+					}
+
+					// Crisp, razor-sharp rendering with zero blurry ghosting
+					draw_list->AddText(set->c_font.name, font_h, { cur_x, base_y + rot_y }, gui->get_clr(char_col), ch_str);
+					cur_x += ch_w;
+				}
+
+				// --- Linear Laser Light Sweep Beneath Title ---
+				float beam_w = (total_w + SCALE(40.0f));
+				float beam_y = base_y + font_h + SCALE(7.0f);
 				float half_beam = beam_w * 0.5f;
 
+				// Subtle base guide track line
 				draw->rect_filled_multi_color(draw_list,
 					{ title_center_x - half_beam, beam_y },
-					{ title_center_x, beam_y + SCALE(1.5f) },
-					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.50f + pulse * 0.35f),
-					gui->get_clr(acc, 0.50f + pulse * 0.35f), gui->get_clr(acc, 0.0f));
+					{ title_center_x, beam_y + SCALE(1.0f) },
+					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f),
+					gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f));
 
 				draw->rect_filled_multi_color(draw_list,
 					{ title_center_x, beam_y },
-					{ title_center_x + half_beam, beam_y + SCALE(1.5f) },
-					gui->get_clr(acc, 0.50f + pulse * 0.35f), gui->get_clr(acc, 0.0f),
-					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.50f + pulse * 0.35f));
+					{ title_center_x + half_beam, beam_y + SCALE(1.0f) },
+					gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f),
+					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f));
 
-				// Central glowing micro-pip on the beam
+				// High-speed specular traveling light sweep
+				float sweep_phase = fmodf(time * 0.65f, 1.0f);
+				float spark_x = (title_center_x - half_beam) + sweep_phase * (beam_w);
 				draw->add_rect_filled(draw_list,
-					{ title_center_x - SCALE(2.0f), beam_y - SCALE(0.8f) },
-					{ title_center_x + SCALE(2.0f), beam_y + SCALE(2.3f) },
-					gui->get_clr(ImVec4(1.0f, 1.0f, 1.0f, 0.70f + pulse * 0.30f)), SCALE(1.0f));
+					{ spark_x - SCALE(10.0f), beam_y - SCALE(0.5f) },
+					{ spark_x + SCALE(10.0f), beam_y + SCALE(1.5f) },
+					gui->get_clr(acc, 0.70f), SCALE(1.0f));
+				draw->add_rect_filled(draw_list,
+					{ spark_x - SCALE(3.0f), beam_y - SCALE(1.0f) },
+					{ spark_x + SCALE(3.0f), beam_y + SCALE(2.0f) },
+					gui->get_clr(clr->c_other_clr.white_clr, 0.95f), SCALE(1.0f));
 			}
 
 			// 3. Vertical tabs stacked smoothly from top to bottom
@@ -317,45 +399,45 @@ void c_gui::render()
 				{
 					gui->begin_group();
 					{
-						gui->begin_child("esp");
+						gui->begin_child("esp_settings");
 						{
 							widget->checkbox_with_key("Enable ESP", &var->c_esp.esp, &var->c_esp.esp_key, &var->c_esp.esp_holding, &var->c_esp.esp_value, &var->c_esp.esp_show_binds);
 
 							widget->separator();
 
-							widget->checkbox("Through walls", &var->c_esp.through_walls);
+							widget->checkbox("Auto Refresh", &var->c_esp.auto_refresh);
 
 							widget->separator();
 
-							widget->dropdown("Dynamic tracer", &var->c_esp.tracers_selection, var->c_esp.tracers_list, var->c_esp.tracers_list.size());
+							const float child_width = GetContentRegionAvail().x;
+							widget->button("Refresh ESP", { child_width, SCALE(32) });
+							if (ImGui::IsItemClicked())
+							{
+								FWork::Data::Refresh();
+								notify->add_notify("ESP cache refreshed successfully!", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox("Dynamic boxes", &var->c_esp.dynamic_boxes);
+							widget->dropdown("Box Type", &var->c_esp.box_selection, var->c_esp.box_list, var->c_esp.box_list.size());
 
 							widget->separator();
 
-							widget->checkbox_with_color("In-Game radar", &var->c_esp.ingame_radar, var->c_esp.inagame_color, true);
+							widget->checkbox_with_color("In-Game Radar", &var->c_esp.ingame_radar, var->c_esp.inagame_color, true);
 						}
 						gui->end_child();
 
-						gui->begin_child("glow");
+						gui->begin_child("esp_ranges");
 						{
-							widget->checkbox_with_key("Enable glow", &var->c_glow.glow, &var->c_glow.glow_key, &var->c_glow.glow_holding, &var->c_glow.glow_value, &var->c_glow.glow_show_binds);
+							widget->slider_int("Max Distance", &var->c_esp.max_distance, 10, 500, 1, "%d m");
 
 							widget->separator();
 
-							widget->slider_int("The power of brightness", &var->c_glow.power, 0, 100, 1, "%d%%");
-						}
-						gui->end_child();
-
-						gui->begin_child("attachments");
-						{
-							widget->checkbox_with_color("Attachments", &var->c_attachments.attachments, var->c_attachments.attachments_color, true);
+							widget->checkbox_with_color("Distance Tag", &var->c_esp.distance, var->c_esp.distance_color, true);
 
 							widget->separator();
 
-							widget->checkbox_with_key("Visible teammates", &var->c_attachments.teammates, &var->c_attachments.teammates_key, &var->c_attachments.teammates_holding, &var->c_attachments.teammates_value, &var->c_attachments.teammates_show_binds);
+							widget->checkbox_with_color("Head Circle", &var->c_esp.headdot, var->c_esp.headdot_color, true);
 						}
 						gui->end_child();
 					}
@@ -365,6 +447,28 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
+						gui->begin_child("skeleton_elements");
+						{
+							widget->checkbox("Skeleton Bones", &var->c_skeleton.skeleton);
+
+							widget->separator();
+
+							widget->dropdown("Snaplines", &var->c_skeleton.snaplines_selection, var->c_skeleton.snaplines_list, var->c_skeleton.snaplines_list.size());
+
+							widget->separator();
+
+							widget->dropdown("Health Bar", &var->c_esp.healthbar_selection, var->c_esp.healthbar_list, var->c_esp.healthbar_list.size());
+
+							widget->separator();
+
+							widget->checkbox_with_color("Weapon Tag", &var->c_skeleton.weapon, var->c_skeleton.weapon_color, true);
+
+							widget->separator();
+
+							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
+						}
+						gui->end_child();
+
 						gui->begin_child("chams");
 						{
 							widget->checkbox_with_key("Enable chams", &var->c_chams.chams, &var->c_chams.chams_key, &var->c_chams.chams_holding, &var->c_chams.chams_value, &var->c_chams.chams_show_binds);
@@ -380,24 +484,6 @@ void c_gui::render()
 							widget->separator();
 
 							widget->checkbox_with_color("Ragdolls", &var->c_chams.ragdolls, var->c_chams.ragdolls_color, true);
-						}
-						gui->end_child();
-
-						gui->begin_child("skeleton");
-						{
-							widget->checkbox("Skeleton", &var->c_skeleton.skeleton);
-
-							widget->separator();
-
-							widget->dropdown("Snaplines", &var->c_skeleton.snaplines_selection, var->c_skeleton.snaplines_list, var->c_skeleton.snaplines_list.size());
-						
-							widget->separator();
-
-							widget->checkbox_with_color("Weapon", &var->c_skeleton.weapon, var->c_skeleton.weapon_color, true);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
 						}
 						gui->end_child();
 					}
@@ -420,6 +506,30 @@ void c_gui::render()
 
 							static char buf[128] = "Default User";
 							widget->text_field("Custom Tag", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
+						}
+						gui->end_child();
+
+						gui->begin_child("lib_management");
+						{
+							widget->checkbox("Connect Lib", &var->c_settings.connect_lib);
+
+							widget->separator();
+
+							const float width = GetContentRegionAvail().x;
+							bool is_conn = FWork::Data::IsConnected();
+							widget->button(is_conn ? "Lib: Connected" : "Connect Lib Now", { width, SCALE(35) });
+							if (ImGui::IsItemClicked())
+							{
+								bool ok = FWork::Data::ConnectEngine();
+								if (ok)
+								{
+									notify->add_notify("Memory Engine connected successfully!", 4, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+								else
+								{
+									notify->add_notify("Failed to connect Lib! Start the game/VM first.", 4, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+							}
 						}
 						gui->end_child();
 					}
