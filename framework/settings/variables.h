@@ -77,6 +77,26 @@ public:
 
 	struct
 	{
+		bool menu_open = true;
+		bool request_exit = false;
+		bool request_hide = false;
+
+		bool enable_hide_key = true;
+		int hide_key = 0x2D; // VK_INSERT (45 -> "INS")
+		bool hide_holding = false;
+		bool hide_value = false;
+		bool hide_show_binds = false;
+
+		bool enable_exit_key = true;
+		int exit_key = 0x23; // VK_END (35 -> "End")
+		bool exit_holding = false;
+		bool exit_value = false;
+		bool exit_show_binds = false;
+
+	} c_panel;
+
+	struct
+	{
 		bool silent_aimbot = false;
 		bool hit_chance = false;
 

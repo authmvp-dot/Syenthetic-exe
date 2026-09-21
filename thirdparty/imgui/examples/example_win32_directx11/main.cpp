@@ -160,7 +160,7 @@ void UpdateHudWindow(float framerate)
 {
     if (!g_hHudWnd || !IsWindow(g_hHudWnd)) return;
 
-    int width = 600;
+    int width = 455;
     int height = 32;
 
     HDC hdcScreen = GetDC(NULL);
@@ -252,32 +252,13 @@ void UpdateHudWindow(float framerate)
         Gdiplus::RectF bound;
         g.MeasureString(L"Synthetic", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(L"Synthetic", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 7.0f;
+        curX += bound.Width + 6.0f;
 
         // Divider
         g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
-        curX += 7.0f;
+        curX += 6.0f;
 
-        // [Element 2] PC / User Name (No Icon)
-        char sysUser[128] = { 0 };
-        DWORD sysLen = sizeof(sysUser);
-        if (!GetUserNameA(sysUser, &sysLen) || sysUser[0] == '\0')
-        {
-            DWORD compLen = sizeof(sysUser);
-            GetComputerNameA(sysUser, &compLen);
-        }
-        std::string dispUser = (sysUser[0] != '\0') ? sysUser : "PC";
-        std::wstring wuser(dispUser.begin(), dispUser.end());
-
-        g.MeasureString(wuser.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
-        g.DrawString(wuser.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 7.0f;
-
-        // Divider
-        g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
-        curX += 7.0f;
-
-        // [Element 3] 3-Bar Chart Icon + Dynamic FPS
+        // [Element 2] 3-Bar Chart Icon + Dynamic FPS
         g.FillRectangle(&purpleBrush, curX, centerY - 1.0f, 2.2f, 6.5f);
         g.FillRectangle(&purpleBrush, curX + 3.4f, centerY - 5.5f, 2.2f, 11.0f);
         g.FillRectangle(&purpleBrush, curX + 6.8f, centerY - 3.5f, 2.2f, 9.0f);
@@ -287,11 +268,11 @@ void UpdateHudWindow(float framerate)
         std::wstring wfps = std::to_wstring(fps_val) + L" FPS";
         g.MeasureString(wfps.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wfps.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 7.0f;
+        curX += bound.Width + 6.0f;
 
         // Divider
         g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
-        curX += 7.0f;
+        curX += 6.0f;
 
         // [Element 4] Mini CPU Chip Icon + Real CPU %
         g.DrawRectangle(&iconPen, curX + 1.0f, centerY - 4.5f, 8.0f, 8.0f);
@@ -302,11 +283,11 @@ void UpdateHudWindow(float framerate)
         std::wstring wcpu = L"CPU " + std::to_wstring(cpu_val) + L" %";
         g.MeasureString(wcpu.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wcpu.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 7.0f;
+        curX += bound.Width + 6.0f;
 
         // Divider
         g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
-        curX += 7.0f;
+        curX += 6.0f;
 
         // [Element 5] Internet Ping Icon + Real Ping
         g.FillEllipse(&iconBrush, curX + 3.8f, centerY + 2.2f, 2.4f, 2.4f);
@@ -322,11 +303,11 @@ void UpdateHudWindow(float framerate)
             wping = L"Ping N/A";
         g.MeasureString(wping.c_str(), -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
         g.DrawString(wping.c_str(), -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
-        curX += bound.Width + 7.0f;
+        curX += bound.Width + 6.0f;
 
         // Divider
         g.DrawLine(&divPen, curX, centerY - 5.5f, curX, centerY + 5.5f);
-        curX += 7.0f;
+        curX += 6.0f;
 
         // [Element 6] Clock Icon + Real Time (Indian 12-hr AM/PM format, plenty of room)
         g.DrawEllipse(&iconPen, curX, centerY - 5.0f, 10.0f, 10.0f);
@@ -492,7 +473,7 @@ int MainApp()
     WNDCLASSEXW wcHud = { sizeof(wcHud), CS_CLASSDC, HudWndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, LoadCursor(0, IDC_ARROW), nullptr, nullptr, L"SyntheticHudClass", nullptr };
     ::RegisterClassExW(&wcHud);
 
-    int hud_w = 600;
+    int hud_w = 455;
     int hud_h = 32;
     int hud_x = primary_w - hud_w - 30;
     int hud_y = 25;
@@ -572,15 +553,18 @@ int MainApp()
         }
         if (done) break;
 
-        // Press INSERT to toggle menu on/off
-        if (GetAsyncKeyState(VK_INSERT) & 1)
+        // Toggle menu on/off via configurable keybind (default INSERT) or in-panel request
+        int hide_k = (var->c_panel.hide_key != 0) ? var->c_panel.hide_key : VK_INSERT;
+        if ((var->c_panel.enable_hide_key && (GetAsyncKeyState(hide_k) & 1)) || var->c_panel.request_hide)
         {
-            menu_open = !menu_open;
-            ShowWindow(g_hwnd, menu_open ? SW_SHOW : SW_HIDE);
+            var->c_panel.request_hide = false;
+            var->c_panel.menu_open = !var->c_panel.menu_open;
+            ShowWindow(g_hwnd, var->c_panel.menu_open ? SW_SHOW : SW_HIDE);
         }
 
-        // Press END to exit
-        if (GetAsyncKeyState(VK_END) & 1)
+        // Exit panel via configurable keybind (default END) or in-panel request
+        int exit_k = (var->c_panel.exit_key != 0) ? var->c_panel.exit_key : VK_END;
+        if ((var->c_panel.enable_exit_key && (GetAsyncKeyState(exit_k) & 1)) || var->c_panel.request_exit)
         {
             done = true;
             break;
@@ -594,7 +578,7 @@ int MainApp()
             lastHudUpdate = now;
         }
 
-        if (!menu_open)
+        if (!var->c_panel.menu_open)
         {
             ::Sleep(16);
             continue;
@@ -747,10 +731,51 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     switch (msg)
     {
+    case WM_MOUSEACTIVATE:
+        return MA_ACTIVATE;
+
     case WM_NCHITTEST:
     {
-        // SetWindowRgn strictly confines g_hwnd to only the menu and active popups.
-        // Any message arriving here is guaranteed to be within the interactive area.
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        ScreenToClient(hWnd, &pt);
+
+        float dpi = (var && var->c_dpi.dpi > 0.0f) ? var->c_dpi.dpi : 1.0f;
+        float header_h = 75.0f * dpi;
+        float sidebar_w = 110.0f * dpi;
+        float menu_w = (set ? set->c_window.window_size.x : 860.f) * dpi;
+        float menu_h = (set ? set->c_window.window_size.y : 630.f) * dpi;
+
+        if (pt.x < 0 || pt.x > menu_w || pt.y < 0 || pt.y > menu_h)
+            return HTCLIENT;
+
+        // Top transparent header (with "Mvp Cheats Aimkill" title) is 100% draggable on click 1
+        if (pt.y >= 0 && pt.y <= header_h)
+            return HTCAPTION;
+
+        // Sidebar empty areas outside tabs
+        if (pt.x >= 0 && pt.x <= sidebar_w)
+        {
+            float start_tab_y = 80.0f * dpi;
+            float tab_h = 62.0f * dpi;
+            float tab_spacing = 14.0f * dpi;
+            float tab_w = 76.0f * dpi;
+            float tab_x = (sidebar_w - tab_w) * 0.5f;
+
+            bool on_tab = false;
+            for (int t = 0; t < 3; ++t)
+            {
+                float ty = start_tab_y + t * (tab_h + tab_spacing);
+                if (pt.x >= tab_x && pt.x <= tab_x + tab_w && pt.y >= ty && pt.y <= ty + tab_h)
+                {
+                    on_tab = true;
+                    break;
+                }
+            }
+
+            if (!on_tab)
+                return HTCAPTION;
+        }
+
         return HTCLIENT;
     }
     case WM_GETMINMAXINFO:

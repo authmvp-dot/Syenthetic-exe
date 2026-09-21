@@ -23,12 +23,15 @@ void c_gui::render()
 			float tab_w = SCALE(76);
 			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
-			// Native window dragging from ANY empty / transparent space or logo in the sidebar
-			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+			// Native window dragging from ANY empty / transparent space or logo in the sidebar OR the top header
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || 
+			   (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsAnyItemActive() && ImGui::GetIO().MouseDownDuration[0] < 0.15f))
 			{
 				ImVec2 mouse = ImGui::GetMousePos();
-				if (mouse.x >= pos.x && mouse.x <= pos.x + SCALE(110) &&
-				    mouse.y >= pos.y && mouse.y <= pos.y + size.y)
+				bool in_header = (mouse.y >= pos.y && mouse.y <= pos.y + SCALE(75.0f) && mouse.x >= pos.x && mouse.x <= pos.x + size.x);
+				bool in_sidebar = (mouse.x >= pos.x && mouse.x <= pos.x + SCALE(110.0f) && mouse.y >= pos.y && mouse.y <= pos.y + size.y);
+
+				if (in_header || in_sidebar)
 				{
 					bool on_tab = false;
 					for (int t = 0; t < 3; ++t)
@@ -46,6 +49,17 @@ void c_gui::render()
 					{
 						ReleaseCapture();
 						SendMessage(g_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+
+						// CRITICAL: Reset ImGui mouse state immediately!
+						// When Windows finishes the modal drag loop, ImGui missed WM_LBUTTONUP.
+						// Resetting these fields prevents the "requires 2 clicks to drag again" issue.
+						ImGuiIO& io = ImGui::GetIO();
+						io.ClearInputKeys();
+						io.MouseDown[0] = false;
+						io.MouseClicked[0] = false;
+						io.MouseDoubleClicked[0] = false;
+						io.MouseDownDuration[0] = -1.0f;
+						io.MouseDownDurationPrev[0] = -1.0f;
 					}
 				}
 			}
@@ -65,11 +79,17 @@ void c_gui::render()
 			draw->add_rect_filled(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_layout), SCALE(set->c_window.general_rounding));
 			draw->add_rect(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_stroke), SCALE(set->c_window.general_rounding));
 
-			draw->add_rect_filled(draw_list, { pos.x + SCALE(110), pos.y + SCALE(15) }, { pos.x + (size.x - SCALE(15)), pos.y + (size.y - SCALE(15)) }, gui->get_clr(clr->c_window.layout), SCALE(set->c_window.rounding));
-			draw->add_rect(draw_list, { pos.x + SCALE(110), pos.y + SCALE(15) }, { pos.x + (size.x - SCALE(15)), pos.y + (size.y - SCALE(15)) }, gui->get_clr(clr->c_window.stroke), SCALE(set->c_window.rounding));
+			float content_top = pos.y + SCALE(75.0f);
+			float content_bottom = pos.y + (size.y - SCALE(15.0f));
+			float content_left = pos.x + SCALE(110.0f);
+			float content_right = pos.x + (size.x - SCALE(15.0f));
 
-			draw->rect_filled_multi_color(draw_list, { pos.x + size.x / 2, pos.y }, { pos.x + size.x, pos.y + 1 }, gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f));
-			draw->rect_filled_multi_color(draw_list, { pos.x, pos.y }, { pos.x + size.x / 2, pos.y + 1 }, gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
+			// Main black panel pushed down to start at tab level, leaving top header fully transparent
+			draw->add_rect_filled(draw_list, { content_left, content_top }, { content_right, content_bottom }, gui->get_clr(clr->c_window.layout), SCALE(set->c_window.rounding));
+			draw->add_rect(draw_list, { content_left, content_top }, { content_right, content_bottom }, gui->get_clr(clr->c_window.stroke), SCALE(set->c_window.rounding));
+
+			draw->rect_filled_multi_color(draw_list, { content_left + (content_right - content_left) * 0.5f, content_top }, { content_right, content_top + 1 }, gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f));
+			draw->rect_filled_multi_color(draw_list, { content_left, content_top }, { content_left + (content_right - content_left) * 0.5f, content_top + 1 }, gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
 			draw->rect_filled_multi_color(draw_list, { pos.x + size.x / 2, pos.y + size.y - 1 }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f));
 			draw->rect_filled_multi_color(draw_list, { pos.x, pos.y + size.y - 1 }, { pos.x + size.x / 2, pos.y + size.y }, gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.2f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
@@ -80,7 +100,61 @@ void c_gui::render()
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			// 2. Vertical tabs stacked smoothly from top to bottom
+			// 2. Top Middle Panel Title: "Mvp Cheats Aimkill" with smooth glowing animation
+			{
+				float title_center_x = (content_left + content_right) * 0.5f;
+				float title_center_y = pos.y + SCALE(36.0f);
+
+				float time = (float)ImGui::GetTime();
+				float pulse = (sinf(time * 2.8f) + 1.0f) * 0.5f;
+				ImVec4 acc = clr->c_other_clr.accent_clr;
+
+				ImVec2 size_mvp = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, "Mvp Cheats ");
+				ImVec2 size_aim = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, "Aimkill");
+				float total_w = size_mvp.x + size_aim.x;
+				float start_x = title_center_x - total_w * 0.5f;
+				float start_y = title_center_y - size_mvp.y * 0.5f;
+
+				// Glowing backlit aura behind "Aimkill"
+				ImU32 glow_col = gui->get_clr(acc, 0.18f + pulse * 0.32f);
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x - 1.5f, start_y }, glow_col, "Aimkill");
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x + 1.5f, start_y }, glow_col, "Aimkill");
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y - 1.5f }, glow_col, "Aimkill");
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y + 1.5f }, glow_col, "Aimkill");
+
+				// Crisp "Mvp Cheats " with subtle metallic shimmer
+				ImVec4 col_mvp = ImLerp(ImVec4(0.88f, 0.88f, 0.94f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f), pulse * 0.35f);
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x, start_y }, gui->get_clr(col_mvp), "Mvp Cheats ");
+
+				// Glowing neon "Aimkill"
+				ImVec4 col_aim = ImLerp(acc, ImVec4(1.0f, 0.42f, 0.52f, 1.0f), pulse * 0.40f);
+				draw_list->AddText(set->c_font.name, set->c_font.name->FontSize, { start_x + size_mvp.x, start_y }, gui->get_clr(col_aim), "Aimkill");
+
+				// Smooth glowing underline energy beam
+				float beam_w = (total_w + SCALE(26.0f)) * (0.86f + pulse * 0.14f);
+				float beam_y = start_y + size_mvp.y + SCALE(5.5f);
+				float half_beam = beam_w * 0.5f;
+
+				draw->rect_filled_multi_color(draw_list,
+					{ title_center_x - half_beam, beam_y },
+					{ title_center_x, beam_y + SCALE(1.5f) },
+					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.50f + pulse * 0.35f),
+					gui->get_clr(acc, 0.50f + pulse * 0.35f), gui->get_clr(acc, 0.0f));
+
+				draw->rect_filled_multi_color(draw_list,
+					{ title_center_x, beam_y },
+					{ title_center_x + half_beam, beam_y + SCALE(1.5f) },
+					gui->get_clr(acc, 0.50f + pulse * 0.35f), gui->get_clr(acc, 0.0f),
+					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.50f + pulse * 0.35f));
+
+				// Central glowing micro-pip on the beam
+				draw->add_rect_filled(draw_list,
+					{ title_center_x - SCALE(2.0f), beam_y - SCALE(0.8f) },
+					{ title_center_x + SCALE(2.0f), beam_y + SCALE(2.3f) },
+					gui->get_clr(ImVec4(1.0f, 1.0f, 1.0f, 0.70f + pulse * 0.30f)), SCALE(1.0f));
+			}
+
+			// 3. Vertical tabs stacked smoothly from top to bottom
 			for (int i = 0; i < 3; i++)
 			{
 				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
@@ -134,7 +208,7 @@ void c_gui::render()
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max - ImVec2(0, SCALE(2.f)), gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.48f });
 			}
 
-			gui->set_cursor_pos(SCALE(115, 15));
+			gui->set_cursor_pos(SCALE(115, 75));
 
 			float anim_dt = ImClamp(ImGui::GetIO().DeltaTime, 0.001f, 0.05f);
 			var->c_selection.selection_alpha = ImClamp(var->c_selection.selection_alpha + (10.f * anim_dt * (var->c_selection.selection == var->c_selection.selection_active ? 1.f : -1.f)), 0.f, 1.f);
@@ -142,7 +216,7 @@ void c_gui::render()
 
 			gui->push_style_var(ImGuiStyleVar_Alpha, var->c_selection.selection_alpha * style->Alpha);
 
-			gui->begin_content("content", ImVec2(size.x - SCALE(130), size.y - SCALE(30)), { 15, 15 }, { 15, 15 });
+			gui->begin_content("content", ImVec2(size.x - SCALE(130), size.y - SCALE(90)), { 15, 15 }, { 15, 15 });
 			{
 				if (var->c_selection.selection_active == 0) // Ragebot
 				{
@@ -355,19 +429,38 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
-						gui->begin_child("dpi");
+						gui->begin_child("panel_management");
 						{
-							widget->slider_int("DPI", &var->c_dpi.dpi_saved, 100, 200, 1, "%d%%");
+							// 1. Hide panel toggle + keybind (default INSERT)
+							widget->checkbox_with_key("Hide panel", &var->c_panel.enable_hide_key, &var->c_panel.hide_key, &var->c_panel.hide_holding, &var->c_panel.hide_value, &var->c_panel.hide_show_binds);
 
-							if (var->c_dpi.dpi != var->c_dpi.dpi_saved / 100.f && IsMouseReleased(ImGuiMouseButton_Left)) {
-								notify->add_notify("You have successfully set the menu size", 4, static_cast<notify_position>(var->c_notify.notify_position));
-								var->c_dpi.dpi_changed = true;
-							}
+							widget->separator();
+
+							// 2. Exit panel toggle + keybind (default END)
+							widget->checkbox_with_key("Exit panel", &var->c_panel.enable_exit_key, &var->c_panel.exit_key, &var->c_panel.exit_holding, &var->c_panel.exit_value, &var->c_panel.exit_show_binds);
 
 							widget->separator();
 
 							const float width = GetContentRegionAvail().x;
 
+							// Quick action buttons to Hide or Exit right now
+							widget->button("Hide UI Now", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+							if (ImGui::IsItemClicked())
+							{
+								var->c_panel.request_hide = true;
+							}
+
+							gui->sameline();
+
+							widget->button("Exit Panel Now", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+							if (ImGui::IsItemClicked())
+							{
+								var->c_panel.request_exit = true;
+							}
+
+							widget->separator();
+
+							// Theme quick actions
 							widget->button("Reset Color", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
 							if (ImGui::IsItemClicked())
 							{
