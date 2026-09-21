@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
@@ -409,6 +410,79 @@ void UpdateHudWindow(float framerate)
     ReleaseDC(NULL, hdcScreen);
 }
 
+struct HitRect
+{
+    int left, top, right, bottom;
+    bool operator==(const HitRect& o) const
+    {
+        return left == o.left && top == o.top && right == o.right && bottom == o.bottom;
+    }
+    bool operator!=(const HitRect& o) const
+    {
+        return !(*this == o);
+    }
+};
+
+static void UpdateHitTestRegion(HWND hWnd)
+{
+    if (!hWnd) return;
+
+    RECT rcClient;
+    if (!GetClientRect(hWnd, &rcClient)) return;
+    int win_w = rcClient.right;
+    int win_h = rcClient.bottom;
+
+    float dpi = (var && var->c_dpi.dpi > 0.0f) ? var->c_dpi.dpi : 1.0f;
+    int menu_w = (int)((set ? set->c_window.window_size.x : 860.f) * dpi);
+    int menu_h = (int)((set ? set->c_window.window_size.y : 630.f) * dpi);
+    if (menu_w > win_w) menu_w = win_w;
+    if (menu_h > win_h) menu_h = win_h;
+
+    std::vector<HitRect> rects;
+    rects.push_back({ 0, 0, menu_w, menu_h });
+
+    ImGuiContext* g = GImGui;
+    if (g)
+    {
+        for (ImGuiWindow* w : g->Windows)
+        {
+            if (w && w->Active && !w->Hidden && !(w->Flags & ImGuiWindowFlags_NoInputs) && w->Name &&
+                strcmp(w->Name, "NAME") != 0 && strcmp(w->Name, "watermark") != 0)
+            {
+                if (w->Size.x > 5.0f && w->Size.y > 5.0f)
+                {
+                    int l = (std::max)(0, (int)w->Pos.x - 2);
+                    int t = (std::max)(0, (int)w->Pos.y - 2);
+                    int r = (std::min)(win_w, (int)(w->Pos.x + w->Size.x + 2));
+                    int b = (std::min)(win_h, (int)(w->Pos.y + w->Size.y + 2));
+
+                    if (r > menu_w || b > menu_h || l < 0 || t < 0)
+                    {
+                        if (r > l && b > t)
+                        {
+                            rects.push_back({ l, t, r, b });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    static std::vector<HitRect> s_last_rects;
+    if (rects != s_last_rects)
+    {
+        HRGN hCombined = CreateRectRgn(rects[0].left, rects[0].top, rects[0].right, rects[0].bottom);
+        for (size_t i = 1; i < rects.size(); ++i)
+        {
+            HRGN hSub = CreateRectRgn(rects[i].left, rects[i].top, rects[i].right, rects[i].bottom);
+            CombineRgn(hCombined, hCombined, hSub, RGN_OR);
+            DeleteObject(hSub);
+        }
+        SetWindowRgn(hWnd, hCombined, TRUE);
+        s_last_rects = rects;
+    }
+}
+
 int MainApp()
 {
     InitGDIPlus();
@@ -450,6 +524,10 @@ int MainApp()
 
     MARGINS margins = { -1, -1, -1, -1 };
     DwmExtendFrameIntoClientArea(g_hwnd, &margins);
+
+    // Strictly constrain initial click region to menu rectangle so desktop is never blocked
+    HRGN hInitialRgn = CreateRectRgn(0, 0, menu_w, menu_h);
+    SetWindowRgn(g_hwnd, hInitialRgn, TRUE);
 
     // 2. Dedicated Draggable Watermark / FPS HUD Window
     WNDCLASSEXW wcHud = { sizeof(wcHud), CS_CLASSDC, HudWndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, LoadCursor(0, IDC_ARROW), nullptr, nullptr, L"SyntheticHudClass", nullptr };
@@ -604,6 +682,8 @@ int MainApp()
 
         gui->render();
 
+        UpdateHitTestRegion(g_hwnd);
+
         const float clear_color[4] = { 0.f, 0.f, 0.f, 0.f };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color);
@@ -703,37 +783,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_NCHITTEST:
     {
-        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-        ScreenToClient(hWnd, &pt);
-
-        float dpi = (var && var->c_dpi.dpi > 0.0f) ? var->c_dpi.dpi : 1.0f;
-        float menu_w = (set ? set->c_window.window_size.x : 860.f) * dpi;
-        float menu_h = (set ? set->c_window.window_size.y : 630.f) * dpi;
-
-        // Inside the main menu rectangle: handle clicks
-        if (pt.x >= 0 && pt.x <= (int)menu_w && pt.y >= 0 && pt.y <= (int)menu_h)
-            return HTCLIENT;
-
-        // Outside main menu: check if mouse is over any active popup or overlay window
-        ImGuiContext* g = GImGui;
-        if (g)
-        {
-            for (ImGuiWindow* w : g->Windows)
-            {
-                if (w && w->Active && !w->Hidden && w->Name && 
-                    strcmp(w->Name, "NAME") != 0 && strcmp(w->Name, "watermark") != 0)
-                {
-                    if (pt.x >= w->Pos.x && pt.x <= w->Pos.x + w->Size.x &&
-                        pt.y >= w->Pos.y && pt.y <= w->Pos.y + w->Size.y)
-                    {
-                        return HTCLIENT;
-                    }
-                }
-            }
-        }
-
-        // Anywhere else in the transparent canvas: click through to desktop!
-        return HTTRANSPARENT;
+        // SetWindowRgn strictly confines g_hwnd to only the menu and active popups.
+        // Any message arriving here is guaranteed to be within the interactive area.
+        return HTCLIENT;
     }
     case WM_GETMINMAXINFO:
     {
