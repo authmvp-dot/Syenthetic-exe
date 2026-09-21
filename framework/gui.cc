@@ -14,14 +14,12 @@ void c_gui::render()
 
 		gui->begin({ "NAME" }, { 0 }, set->c_window.window_flags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 		{
-			// Native window dragging when clicking the top 35px area or top sidebar header
+			// Native window dragging ONLY when clicking the top logo in sidebar
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				ImVec2 mouse = ImGui::GetMousePos();
 				ImVec2 wpos = ImGui::GetWindowPos();
-				ImVec2 wsize = ImGui::GetWindowSize();
-				if ((mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(35) && mouse.x >= wpos.x && mouse.x <= wpos.x + wsize.x) ||
-					(mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(75)))
+				if (mouse.x >= wpos.x && mouse.x <= wpos.x + SCALE(110) && mouse.y >= wpos.y && mouse.y <= wpos.y + SCALE(72))
 				{
 					if (g_hwnd)
 					{
@@ -45,8 +43,6 @@ void c_gui::render()
 				style->ItemSpacing = SCALE(set->c_window.item_spacing);
 			}
 
-			// draw_background_blur(draw_list, g_pSwapChain, g_pd3dDevice, g_pd3dDeviceContext, GetWindowPos(), GetWindowPos() + GetWindowSize(), style->WindowRounding);
-			
 			draw->add_rect_filled(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_layout), SCALE(set->c_window.general_rounding));
 			draw->add_rect(draw_list, { pos.x, pos.y }, { pos.x + size.x, pos.y + size.y }, gui->get_clr(clr->c_window.general_stroke), SCALE(set->c_window.general_rounding));
 
@@ -66,9 +62,9 @@ void c_gui::render()
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
 			// 2. Vertical tabs stacked from top to bottom
-			float start_tab_y = pos.y + SCALE(80);
+			float start_tab_y = pos.y + SCALE(78);
 			float tab_h = SCALE(60);
-			float tab_spacing = SCALE(12);
+			float tab_spacing = SCALE(10);
 			float tab_w = SCALE(76);
 			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
@@ -79,6 +75,11 @@ void c_gui::render()
 				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
 				ImRect tab_rect(ImVec2(tab_x, cur_y), ImVec2(tab_x + tab_w, cur_y + tab_h));
 				ImGuiID tab_id = ImGui::GetID(("##sidebar_tab_" + std::to_string(i)).c_str());
+
+				gui->set_cursor_pos(ImVec2(tab_x - pos.x, cur_y - pos.y));
+				ItemSize(tab_rect, 0);
+				if (!ItemAdd(tab_rect, tab_id))
+					continue;
 
 				bool hovered = false, held = false;
 				bool pressed = ImGui::ButtonBehavior(tab_rect, tab_id, &hovered, &held);
@@ -116,8 +117,7 @@ void c_gui::render()
 				}
 
 				// Tab icon
-				ImVec4 icon_col = ImLerp(clr->c_text.text, clr->c_other_clr.accent_clr, st->anim);
-				if (is_active) icon_col = ImColor(255, 255, 255);
+				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(clr->c_text.text, clr->c_other_clr.accent_clr, st->anim);
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
 
 				if (hovered)
@@ -126,23 +126,22 @@ void c_gui::render()
 				}
 			}
 
-			gui->set_cursor_pos(SCALE(110, 15));
+			gui->set_cursor_pos(SCALE(115, 15));
 
-			var->c_selection.selection_alpha = ImClamp(var->c_selection.selection_alpha + (4.f * ImGui::GetIO().DeltaTime * (var->c_selection.selection == var->c_selection.selection_active ? 1.f : -1.f)), 0.f, 1.f);
-			if (var->c_selection.selection_alpha == 0.f && var->c_selection.selection_add == 0.f) var->c_selection.selection_active = var->c_selection.selection;
+			float anim_dt = ImClamp(ImGui::GetIO().DeltaTime, 0.001f, 0.05f);
+			var->c_selection.selection_alpha = ImClamp(var->c_selection.selection_alpha + (10.f * anim_dt * (var->c_selection.selection == var->c_selection.selection_active ? 1.f : -1.f)), 0.f, 1.f);
+			if (var->c_selection.selection_alpha <= 0.05f) var->c_selection.selection_active = var->c_selection.selection;
 
 			gui->push_style_var(ImGuiStyleVar_Alpha, var->c_selection.selection_alpha * style->Alpha);
 
-			gui->begin_content("content", GetContentRegionAvail() - SCALE(15, 15), { 15, 15 }, { 15, 15 });
+			gui->begin_content("content", ImVec2(size.x - SCALE(130), size.y - SCALE(30)), { 15, 15 }, { 15, 15 });
 			{
-				if (var->c_selection.selection_active == 0)
+				if (var->c_selection.selection_active == 0) // Ragebot
 				{
 					gui->begin_group();
 					{
-
 						gui->begin_child("ragebot");
 						{
-
 							if (widget->checkbox_with_key("Enable ragebot", &var->c_ragebot.ragebot, &var->c_ragebot.rage_key, &var->c_ragebot.rage_holding, &var->c_ragebot.rage_value, &var->c_ragebot.rage_show_binds))
 							{
 								notify->add_notify("You have successfully summoned a notification!", 15, static_cast<notify_position>(var->c_notify.notify_position));
@@ -164,28 +163,23 @@ void c_gui::render()
 
 						gui->begin_child("other");
 						{
-
 							widget->dropdown("Body aimbot", &var->c_other.body_selection, var->c_other.body_list, var->c_other.body_list.size());
 
 							widget->separator();
 
 							widget->dropdown("Safe points", &var->c_other.points_selection, var->c_other.points_list, var->c_other.points_list.size());
-
 						}
 						gui->end_child();
 
 						gui->begin_child("recoil");
 						{
-
 							widget->checkbox_with_key("Enable recoil", &var->c_recoil.enable_recoil, &var->c_recoil.recoil_key, &var->c_recoil.recoil_holding, &var->c_recoil.recoil_value, &var->c_recoil.recoil_show_binds);
 
 							widget->separator();
 
 							widget->slider_int("Smoothness", &var->c_recoil.smoothness, 0, 100, 1, "%d%%");
-
 						}
 						gui->end_child();
-
 					}
 					gui->end_group();
 
@@ -193,10 +187,8 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
-
 						gui->begin_child("move");
 						{
-
 							widget->slider_int("Hit chance", &var->c_move.hit_chance, 0, 100, 1, "%d%%");
 							{
 								widget->set_tooltip("Hit chance", "It displays a tooltip when you hover over an item, a very handy GUI utility\nwith many functions that are not always easy to understand by name.");
@@ -213,13 +205,11 @@ void c_gui::render()
 							widget->separator();
 
 							widget->checkbox("Head safety if lethal", &var->c_move.head_safety);
-
 						}
 						gui->end_child();
 
 						gui->begin_child("trigger");
 						{
-
 							widget->checkbox_with_key("Enable triggerbot", &var->c_trigger.enable_trigger, &var->c_trigger.trigger_key, &var->c_trigger.trigger_holding, &var->c_trigger.trigger_value, &var->c_trigger.trigger_show_binds);
 
 							widget->separator();
@@ -229,13 +219,11 @@ void c_gui::render()
 							widget->separator();
 
 							widget->button("Button", { GetContentRegionAvail().x, SCALE(35) });
-
 						}
 						gui->end_child();
 
 						gui->begin_child("settings");
 						{
-
 							widget->slider_float("Pitch", &var->c_settings.pitch, 0.f, 1.f, 0.1f, "%.3f");
 
 							widget->separator();
@@ -251,15 +239,13 @@ void c_gui::render()
 							widget->checkbox("Head safety if lethal", &var->c_settings.head_safety);
 						}
 						gui->end_child();
-
 					}
 					gui->end_group();
 				}
-				else if (var->c_selection.selection_active == 3)
+				else if (var->c_selection.selection_active == 1) // Visuals
 				{
 					gui->begin_group();
 					{
-
 						gui->begin_child("esp");
 						{
 							widget->checkbox_with_key("Enable ESP", &var->c_esp.esp, &var->c_esp.esp_key, &var->c_esp.esp_holding, &var->c_esp.esp_value, &var->c_esp.esp_show_binds);
@@ -288,7 +274,7 @@ void c_gui::render()
 
 							widget->separator();
 
-							widget->slider_int("The power of brightness", &var->c_glow.power, 0, 100, 1, "%d%$");
+							widget->slider_int("The power of brightness", &var->c_glow.power, 0, 100, 1, "%d%%");
 						}
 						gui->end_child();
 
@@ -301,7 +287,6 @@ void c_gui::render()
 							widget->checkbox_with_key("Visible teammates", &var->c_attachments.teammates, &var->c_attachments.teammates_key, &var->c_attachments.teammates_holding, &var->c_attachments.teammates_value, &var->c_attachments.teammates_show_binds);
 						}
 						gui->end_child();
-
 					}
 					gui->end_group();
 
@@ -309,7 +294,6 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
-
 						gui->begin_child("chams");
 						{
 							widget->checkbox_with_key("Enable chams", &var->c_chams.chams, &var->c_chams.chams_key, &var->c_chams.chams_holding, &var->c_chams.chams_value, &var->c_chams.chams_show_binds);
@@ -325,7 +309,6 @@ void c_gui::render()
 							widget->separator();
 
 							widget->checkbox_with_color("Ragdolls", &var->c_chams.ragdolls, var->c_chams.ragdolls_color, true);
-
 						}
 						gui->end_child();
 
@@ -346,13 +329,217 @@ void c_gui::render()
 							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
 						}
 						gui->end_child();
-
 					}
 					gui->end_group();
 				}
-				else if (var->c_selection.selection_active == 4)
+				else if (var->c_selection.selection_active == 2) // Players
 				{
+					gui->begin_group();
+					{
+						gui->begin_child("players_esp");
+						{
+							widget->checkbox_with_key("Enable ESP", &var->c_esp.esp, &var->c_esp.esp_key, &var->c_esp.esp_holding, &var->c_esp.esp_value, &var->c_esp.esp_show_binds);
 
+							widget->separator();
+
+							widget->checkbox_with_key("Visible teammates", &var->c_attachments.teammates, &var->c_attachments.teammates_key, &var->c_attachments.teammates_holding, &var->c_attachments.teammates_value, &var->c_attachments.teammates_show_binds);
+
+							widget->separator();
+
+							widget->checkbox("Through walls", &var->c_esp.through_walls);
+
+							widget->separator();
+
+							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
+
+							widget->separator();
+
+							widget->checkbox_with_color("Weapon", &var->c_skeleton.weapon, var->c_skeleton.weapon_color, true);
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+
+					gui->sameline();
+
+					gui->begin_group();
+					{
+						gui->begin_child("players_models");
+						{
+							widget->checkbox_with_key("Enable chams", &var->c_chams.chams, &var->c_chams.chams_key, &var->c_chams.chams_holding, &var->c_chams.chams_value, &var->c_chams.chams_show_binds);
+
+							widget->separator();
+
+							widget->checkbox_with_color("Backtrack", &var->c_chams.backtrack, var->c_chams.backtrack_color, true);
+
+							widget->separator();
+
+							widget->checkbox("Skeleton", &var->c_skeleton.skeleton);
+
+							widget->separator();
+
+							widget->checkbox_with_color("Ragdolls", &var->c_chams.ragdolls, var->c_chams.ragdolls_color, true);
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+				}
+				else if (var->c_selection.selection_active == 3) // Movement
+				{
+					static bool bhop = true;
+					static bool auto_strafe = false;
+					static bool fast_stop = true;
+					static bool slide_walk = false;
+					static int move_speed = 100;
+
+					gui->begin_group();
+					{
+						gui->begin_child("movement_main");
+						{
+							widget->checkbox("Bunny hop", &bhop);
+
+							widget->separator();
+
+							widget->checkbox("Auto strafe", &auto_strafe);
+
+							widget->separator();
+
+							widget->checkbox("Fast stop", &fast_stop);
+
+							widget->separator();
+
+							widget->checkbox("Slide walk", &slide_walk);
+
+							widget->separator();
+
+							widget->slider_int("Movement speed", &move_speed, 0, 100, 1, "%d%%");
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+
+					gui->sameline();
+
+					gui->begin_group();
+					{
+						gui->begin_child("movement_assist");
+						{
+							widget->slider_int("Smoothness", &var->c_recoil.smoothness, 0, 100, 1, "%d%%");
+
+							widget->separator();
+
+							widget->slider_float("Pitch", &var->c_settings.pitch, 0.f, 1.f, 0.1f, "%.3f");
+
+							widget->separator();
+
+							widget->slider_float("Yaw", &var->c_settings.yaw, 0.f, 1.f, 0.1f, "%.3f");
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+				}
+				else if (var->c_selection.selection_active == 4) // Settings
+				{
+					gui->begin_group();
+					{
+						gui->begin_child("oth");
+						{
+							static char buf[128] = "Default User";
+							widget->text_field("Custom Tag", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
+
+							widget->separator();
+
+							widget->button("Button", { GetContentRegionAvail().x, SCALE(35) });
+
+							widget->separator();
+
+							const float width = GetContentRegionAvail().x;
+
+							widget->button("Press", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+
+							gui->sameline();
+
+							widget->button("Click", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+
+					gui->sameline();
+
+					gui->begin_group();
+					{
+						gui->begin_child("dpi");
+						{
+							widget->slider_int("DPI", &var->c_dpi.dpi_saved, 100, 200, 1, "%d%%");
+
+							if (var->c_dpi.dpi != var->c_dpi.dpi_saved / 100.f && IsMouseReleased(ImGuiMouseButton_Left)) {
+								notify->add_notify("You have successfully set the menu size", 15, static_cast<notify_position>(var->c_notify.notify_position));
+								var->c_dpi.dpi_changed = true;
+							}
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+				}
+				else if (var->c_selection.selection_active == 5) // Configs
+				{
+					draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(GetStyle().WindowPadding.x, SCALE(64)), GetWindowPos() + ImVec2(GetWindowWidth() - GetStyle().WindowPadding.x, SCALE(64)), gui->get_clr(clr->c_child.stroke), SCALE(1.f));
+					widget->tool_dropdown("Sort", &var->c_config.sort_selection, var->c_config.sort_list, var->c_config.sort_list.size());
+
+					gui->sameline();
+
+					if (widget->tool_button("Create", "A", SCALE(90, 36)))
+						var->c_config.create = true;
+
+					if (var->c_config.create)
+					{
+						gui->set_next_window_size(SCALE(310, 80));
+						gui->set_next_window_pos(GetWindowPos() + (GetWindowSize() / 2 - SCALE(310, 80) / 2));
+						gui->push_style_var(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+						gui->begin("Create", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);
+						{
+							draw->add_rect_filled(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.layout), SCALE(set->c_child.rounding));
+							draw->add_rect(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.stroke), SCALE(set->c_child.rounding), 0, SCALE(1.f));
+
+							gui->set_cursor_pos(SCALE(20, 20));
+							gui->begin_group();
+							{
+								widget->text_field("Config Name", "M", var->c_config.name, 128, SCALE(180, 40));
+								gui->sameline();
+								ImGui::PushID("Create Config");
+								if (widget->button("Create", SCALE(75, 40)))
+								{
+									std::string name(var->c_config.name);
+									var->c_config.data.insert(var->c_config.data.begin(), { name, gui->get_current_date() });
+									var->c_config.create = false;
+								}
+								ImGui::PopID();
+							}
+							gui->end_group();
+
+							if (!IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize()) && (IsMouseClicked(0) || IsMouseClicked(1)))
+								var->c_config.create = false;
+						}
+						gui->end();
+						gui->pop_style_var();
+					}
+
+					gui->set_cursor_pos_y(SCALE(80));
+					gui->begin_group();
+					{
+						for (int i = 0; i < var->c_config.data.size(); i++)
+						{
+							if (var->c_config.sort_selection == 0)
+								widget->config_selectable(&var->c_config.data.at(i), i, var->c_config.active);
+							else if (var->c_config.sort_selection == 1)
+								widget->config_selectable(&var->c_config.data.at(var->c_config.data.size() - i - 1), var->c_config.data.size() - i - 1, var->c_config.active);
+						}
+					}
+					gui->end_group();
+				}
+				else if (var->c_selection.selection_active == 6) // Scripts
+				{
 					draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(GetStyle().WindowPadding.x, SCALE(64)), GetWindowPos() + ImVec2(GetWindowWidth() - GetStyle().WindowPadding.x, SCALE(64)), gui->get_clr(clr->c_child.stroke), SCALE(1.f));
 
 					widget->tool_dropdown("Sort", &var->c_lua.sort_selection, var->c_lua.sort_list, var->c_lua.sort_list.size());
@@ -458,118 +645,10 @@ void c_gui::render()
 						gui->pop_style_var();
 					}
 				}
-				else if (var->c_selection.selection_active == 5)
-				{
-
-					draw->add_line(GetWindowDrawList(), GetWindowPos() + ImVec2(GetStyle().WindowPadding.x, SCALE(64)), GetWindowPos() + ImVec2(GetWindowWidth() - GetStyle().WindowPadding.x, SCALE(64)), gui->get_clr(clr->c_child.stroke), SCALE(1.f));
-					widget->tool_dropdown("Sort", &var->c_config.sort_selection, var->c_config.sort_list, var->c_config.sort_list.size());
-
-					gui->sameline();
-
-					if (widget->tool_button("Create", "A", SCALE(90, 36)))
-						var->c_config.create = true;
-
-					if (var->c_config.create)
-					{
-						gui->set_next_window_size(SCALE(310, 80));
-						gui->set_next_window_pos(GetWindowPos() + (GetWindowSize() / 2 - SCALE(310, 80) / 2));
-						gui->push_style_var(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-						gui->begin("Create", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);
-						{
-							draw->add_rect_filled(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.layout), SCALE(set->c_child.rounding));
-							draw->add_rect(GetWindowDrawList(), GetWindowPos(), GetWindowPos() + GetWindowSize(), gui->get_clr(clr->c_child.stroke), SCALE(set->c_child.rounding), 0, SCALE(1.f));
-
-							gui->set_cursor_pos(SCALE(20, 20));
-							gui->begin_group();
-							{
-								widget->text_field("Config Name", "M", var->c_config.name, 128, SCALE(180, 40));
-								gui->sameline();
-								ImGui::PushID("Create Config");
-								if (widget->button("Create", SCALE(75, 40)))
-								{
-									std::string name(var->c_config.name);
-									var->c_config.data.insert(var->c_config.data.begin(), { name, gui->get_current_date() });
-									var->c_config.create = false;
-								}
-								ImGui::PopID();
-							}
-							gui->end_group();
-
-							if (!IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize()) && (IsMouseClicked(0) || IsMouseClicked(1)))
-								var->c_config.create = false;
-
-						}
-						gui->end();
-						gui->pop_style_var();
-					}
-
-					gui->set_cursor_pos_y(SCALE(80));
-					gui->begin_group();
-					{
-						for (int i = 0; i < var->c_config.data.size(); i++)
-						{
-							if (var->c_config.sort_selection == 0)
-								widget->config_selectable(&var->c_config.data.at(i), i, var->c_config.active);
-							else if (var->c_config.sort_selection == 1)
-								widget->config_selectable(&var->c_config.data.at(var->c_config.data.size() - i - 1), var->c_config.data.size() - i - 1, var->c_config.active);
-						}
-					}
-					gui->end_group();
-				}
-				else if (var->c_selection.selection_active == 6)
-				{
-					gui->begin_group();
-					{
-
-						gui->begin_child("oth");
-						{
-							static char buf[128];
-							widget->text_field("Enter your text", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
-
-							widget->separator();
-
-							widget->button("Button", { GetContentRegionAvail().x, SCALE(35) });
-
-							widget->separator();
-
-							const float width = GetContentRegionAvail().x;
-
-							widget->button("Press", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
-
-							gui->sameline();
-
-							widget->button("Click", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
-						}
-						gui->end_child();
-
-					}
-					gui->end_group();
-
-					gui->sameline();
-
-					gui->begin_group();
-					{
-
-						gui->begin_child("dpi");
-						{
-							widget->slider_int("DPI", &var->c_dpi.dpi_saved, 100, 200, 1, "%d%%");
-
-							if (var->c_dpi.dpi != var->c_dpi.dpi_saved / 100.f && IsMouseReleased(ImGuiMouseButton_Left)) {
-
-								notify->add_notify("You have successfully set the menu size", 15, static_cast<notify_position>(var->c_notify.notify_position));
-								var->c_dpi.dpi_changed = true;
-
-							}
-						}
-						gui->end_child();
-
-					}
-					gui->end_group();
-				}
 			}
 			gui->end_content();
 
-			gui->pop_style_var(2);
+			gui->pop_style_var(1);
 
 		}
 		gui->end();

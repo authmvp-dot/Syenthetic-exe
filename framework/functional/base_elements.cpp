@@ -60,10 +60,7 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
     ImGuiWindow* window = GetCurrentWindow();
 
     const ImGuiID id = window->GetID(tooltip_text.data());
-    const ImVec2 pos = window->DC.CursorPos;
     ImGuiContext& g = *GImGui;
-
-    ImVec2 content_size;
 
     struct popup_state
     {
@@ -78,7 +75,37 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
     else
         state->show_tooltip = false;
 
-    state->alpha_popup = ImClamp(state->alpha_popup + (gui->fixed_speed(5.f) * (state->show_tooltip ? 1.f : -1.f)), 0.f, 1.f);
+    state->alpha_popup = ImClamp(state->alpha_popup + (gui->fixed_speed(10.f) * (state->show_tooltip ? 1.f : -1.f)), 0.f, 1.f);
+    if (!state->show_tooltip && state->alpha_popup < 0.01f)
+        return false;
+
+    // Calculate required width for title and body
+    gui->push_font(set->c_font.inter_medium[0]);
+    float text_width = CalcTextSize(tooltip_text.data()).x;
+    float id_width = CalcTextSize(tooltip_id.data()).x + SCALE(30.f);
+    gui->pop_font();
+    float tooltip_w = ImMax(text_width, id_width) + SCALE(36.f);
+
+    ImVec2 mouse = ImGui::GetMousePos();
+    float target_x = mouse.x + SCALE(16.f);
+    float max_x = g.IO.DisplaySize.x - SCALE(15.f);
+
+    // If tooltip overflows past right boundary, flip to left of cursor or clamp
+    if (target_x + tooltip_w > max_x)
+    {
+        target_x = mouse.x - tooltip_w - SCALE(12.f);
+        if (target_x < SCALE(15.f))
+            target_x = ImMax(SCALE(15.f), max_x - tooltip_w);
+    }
+
+    float target_y = mouse.y + SCALE(14.f);
+    float max_y = g.IO.DisplaySize.y - SCALE(15.f);
+    if (target_y + SCALE(95.f) > max_y)
+    {
+        target_y = mouse.y - SCALE(95.f);
+        if (target_y < SCALE(15.f))
+            target_y = SCALE(15.f);
+    }
 
     gui->push_style_var(ImGuiStyleVar_Alpha, state->alpha_popup);
     gui->push_style_var(ImGuiStyleVar_WindowBorderSize, 1.f);
@@ -87,14 +114,12 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
     gui->push_style_color(ImGuiCol_WindowBg, gui->get_clr(clr->c_child.layout));
     gui->push_style_color(ImGuiCol_Border, gui->get_clr(clr->c_child.stroke));
 
-    gui->set_next_window_pos(ImGui::GetMousePos() + SCALE(20, 20));
-    gui->set_next_window_size(ImVec2(CalcTextSize(tooltip_text.data()).x + SCALE(30), content_size.y));
+    gui->set_next_window_pos(ImVec2(target_x, target_y));
+    gui->set_next_window_size(ImVec2(tooltip_w, 0));
 
-    gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse);
+    if (gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse))
     {
-
         state->hovered = IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize());
-        content_size = GetContentRegionAvail();
 
         text_colored(set->c_font.icon[0], gui->get_clr(clr->c_other_clr.white_clr), "L");
 
@@ -106,11 +131,11 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
 
         text_colored(set->c_font.inter_medium[0], gui->get_clr(clr->c_text.text), tooltip_text.data());
 
-        gui->pop_style_var(3);
-        gui->pop_style_color(2);
-
+        gui->end();
     }
-    gui->end();
+
+    gui->pop_style_var(3);
+    gui->pop_style_color(2);
 
     return state->show_tooltip;
 }

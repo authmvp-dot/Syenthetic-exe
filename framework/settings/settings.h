@@ -13,7 +13,7 @@ public:
 
 		std::string name = "S\nY\nN\nT\nH\nE\nT\nI\nC";
 
-		ImVec2 window_size = ImVec2(840, 630);
+		ImVec2 window_size = ImVec2(860, 630);
 		ImVec2 padding = ImVec2(0, 0);
 		ImVec2 item_spacing = ImVec2(4, 4);
 
