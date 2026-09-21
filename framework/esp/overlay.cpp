@@ -313,6 +313,13 @@ void Overlay::RenderFrame()
     g_Globals.EspConfig.Width = (int)io.DisplaySize.x;
     g_Globals.EspConfig.Height = (int)io.DisplaySize.y;
 
+    static bool lastCapture = false;
+    if (lastCapture != g_Globals.General.Capture && overlay_hwnd)
+    {
+        lastCapture = g_Globals.General.Capture;
+        SetWindowDisplayAffinity(overlay_hwnd, lastCapture ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
+    }
+
     if (Offsets::Il2Cpp != 0 && !g_espShutDown.load() && g_Globals.Visuals.Enable)
     {
         ESP::Players();

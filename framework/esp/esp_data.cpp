@@ -576,8 +576,8 @@ bool Data::EntityData(uint32_t entity, Player& player, Vector3& mainPos)
 
         if (player.IsDead)
         {
-            player.Distance = 0;
-            return true;
+            player.Distance = 0.0f;
+            return false;
         }
 
         uint32_t headPtr = 0;
@@ -593,6 +593,12 @@ bool Data::EntityData(uint32_t entity, Player& player, Vector3& mainPos)
             if (Mem.Read<uint32_t>(entity + Offsets::Bones::Neck, neckPtr) && neckPtr != 0) {
                 TransformUtils::GetNodePosition(neckPtr, player.Neck);
             }
+        }
+
+        // Strict rejection: Must have a valid root or head bone in world space
+        if (player.Head == Vector3::Zero() && player.Root == Vector3::Zero())
+        {
+            return false;
         }
 
         if (g_Globals.Visuals.Skeleton)
@@ -628,10 +634,17 @@ bool Data::EntityData(uint32_t entity, Player& player, Vector3& mainPos)
         }
 
         Vector3 targetPos = (player.Head != Vector3::Zero()) ? player.Head : ((player.Neck != Vector3::Zero()) ? player.Neck : player.Root);
-        if (targetPos != Vector3::Zero() && mainPos != Vector3::Zero())
-            player.Distance = static_cast<int>(Vector3::Distance(mainPos, targetPos));
-        else
-            player.Distance = 0;
+        if (targetPos == Vector3::Zero() || mainPos == Vector3::Zero())
+        {
+            player.Distance = 0.0f;
+            return false;
+        }
+
+        player.Distance = Vector3::Distance(mainPos, targetPos);
+        if (player.Distance <= 0.5f || player.Distance > 1000.0f)
+        {
+            return false;
+        }
 
         player.IsFemale = Mem.ReadS<bool>(player.Address + Offsets::Player_IsFemale);
 

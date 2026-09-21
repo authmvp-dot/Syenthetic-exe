@@ -8,22 +8,8 @@ void c_gui::render()
 
 	gui->new_frame();
 	{
-		// Sync UI settings into runtime ESP globals
-		g_Globals.Visuals.Enable = var->c_esp.esp;
+		// Keep AutoRefresh in sync
 		g_Globals.EspConfig.AutoRefresh = var->c_settings.connect_lib || var->c_esp.auto_refresh;
-		g_Globals.Visuals.Box = (var->c_esp.box_selection >= 0);
-		g_Globals.Visuals.players_box = var->c_esp.box_selection;
-		g_Globals.Visuals.Skeleton = var->c_skeleton.skeleton;
-		g_Globals.Visuals.Lines = (var->c_skeleton.snaplines_selection >= 0);
-		g_Globals.Visuals.EspLines = var->c_skeleton.snaplines_selection;
-		g_Globals.Visuals.HealthBar = var->c_esp.healthbar;
-		g_Globals.Visuals.players_healthbar = var->c_esp.healthbar_selection;
-		g_Globals.Visuals.HeadDot = var->c_esp.headdot;
-		g_Globals.Visuals.ESPWeapon = var->c_skeleton.weapon;
-		g_Globals.Visuals.Name = var->c_skeleton.nickname;
-		g_Globals.Visuals.Distance = var->c_esp.distance;
-		g_Globals.Visuals.DistanceEsp = var->c_esp.max_distance;
-		g_Globals.Visuals.Radar = var->c_esp.ingame_radar;
 
 		notify->setup_notify();
 
@@ -399,13 +385,87 @@ void c_gui::render()
 				{
 					gui->begin_group();
 					{
-						gui->begin_child("esp_settings");
+						gui->begin_child("esp_main");
 						{
-							widget->checkbox_with_key("Enable ESP", &var->c_esp.esp, &var->c_esp.esp_key, &var->c_esp.esp_holding, &var->c_esp.esp_value, &var->c_esp.esp_show_binds);
+							if (widget->checkbox("Enable Streamer ESP", &g_Globals.General.Capture))
+							{
+								Beep(g_Globals.General.Capture ? 800 : 500, 45);
+								notify->add_notify(g_Globals.General.Capture ? "Stream Mode On" : "Stream Mode Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox("Auto Refresh", &var->c_esp.auto_refresh);
+							if (widget->checkbox("Enable Esp", &g_Globals.Visuals.Enable))
+							{
+								Beep(g_Globals.Visuals.Enable ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Enable ? "ESP On" : "ESP Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Count Enemy", &g_Globals.Visuals.ShowNearEnemyCount))
+							{
+								Beep(g_Globals.Visuals.ShowNearEnemyCount ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.ShowNearEnemyCount ? "Count Enemy On" : "Count Enemy Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox_with_color("ESP Box", &g_Globals.Visuals.Box, g_Globals.Visuals.BoxColor, true))
+							{
+								Beep(g_Globals.Visuals.Box ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Box ? "ESP Box On" : "ESP Box Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							if (g_Globals.Visuals.Box)
+							{
+								widget->separator();
+								static std::vector<std::string> box_styles = { "Full Box", "Corner Box" };
+								int boxIdx = g_Globals.Visuals.players_box - 1;
+								if (boxIdx < 0 || boxIdx > 1) boxIdx = 1;
+								if (widget->dropdown("Box Style", &boxIdx, box_styles, (int)box_styles.size()))
+								{
+									g_Globals.Visuals.players_box = boxIdx + 1;
+								}
+							}
+
+							widget->separator();
+
+							if (widget->checkbox_with_color("ESP Skeleton", &g_Globals.Visuals.Skeleton, g_Globals.Visuals.SkeletonColor, true))
+							{
+								Beep(g_Globals.Visuals.Skeleton ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Skeleton ? "ESP Skeleton On" : "ESP Skeleton Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("ESP Level", &g_Globals.Visuals.Level))
+							{
+								Beep(g_Globals.Visuals.Level ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Level ? "ESP Level On" : "ESP Level Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+						}
+						gui->end_child();
+
+						gui->begin_child("esp_distance_control");
+						{
+							if (widget->checkbox("ESP Distance", &g_Globals.Visuals.Distance))
+							{
+								Beep(g_Globals.Visuals.Distance ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Distance ? "ESP Distance On" : "ESP Distance Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							widget->slider_int("Max Distance", &g_Globals.Visuals.DistanceEsp, 10, 500, 1, "%d m");
+
+							widget->separator();
+
+							if (widget->checkbox("ESP Name", &g_Globals.Visuals.Name))
+							{
+								Beep(g_Globals.Visuals.Name ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Name ? "ESP Name On" : "ESP Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
@@ -414,30 +474,8 @@ void c_gui::render()
 							if (ImGui::IsItemClicked())
 							{
 								FWork::Data::Refresh();
-								notify->add_notify("ESP cache refreshed successfully!", 3, static_cast<notify_position>(var->c_notify.notify_position));
+								notify->add_notify("ESP cache refreshed!", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-
-							widget->separator();
-
-							widget->dropdown("Box Type", &var->c_esp.box_selection, var->c_esp.box_list, var->c_esp.box_list.size());
-
-							widget->separator();
-
-							widget->checkbox_with_color("In-Game Radar", &var->c_esp.ingame_radar, var->c_esp.inagame_color, true);
-						}
-						gui->end_child();
-
-						gui->begin_child("esp_ranges");
-						{
-							widget->slider_int("Max Distance", &var->c_esp.max_distance, 10, 500, 1, "%d m");
-
-							widget->separator();
-
-							widget->checkbox_with_color("Distance Tag", &var->c_esp.distance, var->c_esp.distance_color, true);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Head Circle", &var->c_esp.headdot, var->c_esp.headdot_color, true);
 						}
 						gui->end_child();
 					}
@@ -447,43 +485,94 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
-						gui->begin_child("skeleton_elements");
+						gui->begin_child("esp_lines_settings");
 						{
-							widget->checkbox("Skeleton Bones", &var->c_skeleton.skeleton);
+							if (widget->checkbox_with_color("ESP Line", &g_Globals.Visuals.Lines, g_Globals.Visuals.LinesColor, true))
+							{
+								Beep(g_Globals.Visuals.Lines ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Lines ? "ESP Line On" : "ESP Line Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
-							widget->separator();
+							if (g_Globals.Visuals.Lines)
+							{
+								widget->separator();
 
-							widget->dropdown("Snaplines", &var->c_skeleton.snaplines_selection, var->c_skeleton.snaplines_list, var->c_skeleton.snaplines_list.size());
+								if (widget->checkbox("Rainbow Lines", &g_Globals.Visuals.RainbowLines))
+								{
+									Beep(g_Globals.Visuals.RainbowLines ? 800 : 500, 45);
+									notify->add_notify(g_Globals.Visuals.RainbowLines ? "Rainbow Lines On" : "Rainbow Lines Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+								}
 
-							widget->separator();
+								widget->separator();
 
-							widget->dropdown("Health Bar", &var->c_esp.healthbar_selection, var->c_esp.healthbar_list, var->c_esp.healthbar_list.size());
+								if (widget->checkbox("Glow Lines", &g_Globals.Visuals.GlowLines))
+								{
+									Beep(g_Globals.Visuals.GlowLines ? 800 : 500, 45);
+									notify->add_notify(g_Globals.Visuals.GlowLines ? "Glow Lines On" : "Glow Lines Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+								}
 
-							widget->separator();
+								widget->separator();
 
-							widget->checkbox_with_color("Weapon Tag", &var->c_skeleton.weapon, var->c_skeleton.weapon_color, true);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Nickname", &var->c_skeleton.nickname, var->c_skeleton.nickname_color, true);
+								static std::vector<std::string> line_pos = { "Top Screen", "Bottom Screen" };
+								int lineIdx = g_Globals.Visuals.EspLines - 1;
+								if (lineIdx < 0 || lineIdx > 1) lineIdx = 0;
+								if (widget->dropdown("Line Position", &lineIdx, line_pos, (int)line_pos.size()))
+								{
+									g_Globals.Visuals.EspLines = lineIdx + 1;
+								}
+							}
 						}
 						gui->end_child();
 
-						gui->begin_child("chams");
+						gui->begin_child("esp_health_weapons");
 						{
-							widget->checkbox_with_key("Enable chams", &var->c_chams.chams, &var->c_chams.chams_key, &var->c_chams.chams_holding, &var->c_chams.chams_value, &var->c_chams.chams_show_binds);
+							if (widget->checkbox("ESP Health Bar", &g_Globals.Visuals.HealthBar))
+							{
+								Beep(g_Globals.Visuals.HealthBar ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.HealthBar ? "Health Bar On" : "Health Bar Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							if (g_Globals.Visuals.HealthBar)
+							{
+								widget->separator();
+								static std::vector<std::string> healthBarTypes = {
+									"None",
+									"Left",
+									"Right",
+									"Bottom",
+									"Text"
+								};
+								widget->dropdown("Health Bar Type", &g_Globals.Visuals.players_healthbar, healthBarTypes, (int)healthBarTypes.size());
+							}
 
 							widget->separator();
 
-							widget->checkbox_with_color("Backtrack", &var->c_chams.backtrack, var->c_chams.backtrack_color, true);
+							static bool WeaponName = g_Globals.Visuals.ESPWeapon;
+							if (widget->checkbox("ESP Weapon Name", &WeaponName))
+							{
+								if (WeaponName)
+								{
+									g_Globals.Visuals.esparmas = true;
+									g_Globals.Visuals.ESPWeapon = true;
+									Beep(800, 45);
+									notify->add_notify("ESP Weapon Name On", 3, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+								else
+								{
+									g_Globals.Visuals.esparmas = false;
+									g_Globals.Visuals.ESPWeapon = false;
+									Beep(500, 45);
+									notify->add_notify("ESP Weapon Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+								}
+							}
 
 							widget->separator();
 
-							widget->checkbox_with_color("On shot", &var->c_chams.onshot, var->c_chams.onshot_color, true);
-
-							widget->separator();
-
-							widget->checkbox_with_color("Ragdolls", &var->c_chams.ragdolls, var->c_chams.ragdolls_color, true);
+							if (widget->checkbox("Show Gun Icons", &g_Globals.Visuals.ESPWeaponIcon))
+							{
+								Beep(g_Globals.Visuals.ESPWeaponIcon ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.ESPWeaponIcon ? "Gun Icons On" : "Gun Icons Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 						}
 						gui->end_child();
 					}

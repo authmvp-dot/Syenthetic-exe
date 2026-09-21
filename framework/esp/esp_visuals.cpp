@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <shared_mutex>
 
 namespace ESP {
 
@@ -25,58 +26,252 @@ static inline float SafeClamp(float v, float lo, float hi)
     return v;
 }
 
-static void DrawCornerBox(ImDrawList* drawList, float x, float y, float w, float h, ImU32 col, float thickness = 1.2f)
+ImVec4 HSVtoRGB(float h, float s, float v)
 {
-    float lineW = w * 0.25f;
-    float lineH = h * 0.25f;
+    float r = 0, g = 0, b = 0;
+    int i = static_cast<int>(h * 6);
+    float f = h * 6 - i;
+    float p = v * (1 - s);
+    float q = v * (1 - f * s);
+    float t = v * (1 - (1 - f) * s);
 
-    // Top-left
-    drawList->AddLine(ImVec2(x, y), ImVec2(x + lineW, y), col, thickness);
-    drawList->AddLine(ImVec2(x, y), ImVec2(x, y + lineH), col, thickness);
+    switch (i % 6) {
+    case 0: r = v, g = t, b = p; break;
+    case 1: r = q, g = v, b = p; break;
+    case 2: r = p, g = v, b = t; break;
+    case 3: r = p, g = q, b = v; break;
+    case 4: r = t, g = p, b = v; break;
+    case 5: r = v, g = p, b = q; break;
+    default: r = g = b = 0; break;
+    }
 
-    // Top-right
-    drawList->AddLine(ImVec2(x + w, y), ImVec2(x + w - lineW, y), col, thickness);
-    drawList->AddLine(ImVec2(x + w, y), ImVec2(x + w, y + lineH), col, thickness);
-
-    // Bottom-left
-    drawList->AddLine(ImVec2(x, y + h), ImVec2(x + lineW, y + h), col, thickness);
-    drawList->AddLine(ImVec2(x, y + h), ImVec2(x, y + h - lineH), col, thickness);
-
-    // Bottom-right
-    drawList->AddLine(ImVec2(x + w, y + h), ImVec2(x + w - lineW, y + h), col, thickness);
-    drawList->AddLine(ImVec2(x + w, y + h), ImVec2(x + w, y + h - lineH), col, thickness);
+    return ImVec4(r, g, b, 1.0f);
 }
 
-static void DrawHealthBar(ImDrawList* drawList, short currentHp, short maxHp, float x, float y, float w, float h, int position)
+void DrawGlowLine(const ImVec2& start, const ImVec2& end, ImU32 color, float thickness, float glowRadius, float feather)
 {
-    if (maxHp <= 0) maxHp = 200;
-    if (currentHp < 0) currentHp = 0;
-    if (currentHp > maxHp) currentHp = maxHp;
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    if (!drawList) return;
+    if (!IsFinite2(start.x, start.y) || !IsFinite2(end.x, end.y)) return;
 
-    float percent = SafeClamp((float)currentHp / (float)maxHp, 0.0f, 1.0f);
-    ImU32 hpColor = (percent > 0.6f) ? IM_COL32(76, 217, 100, 255) :
-                    (percent > 0.3f) ? IM_COL32(255, 204, 0, 255) :
-                                       IM_COL32(255, 59, 48, 255);
+    float coreThickness = thickness;
+    if (coreThickness < 0.5f) coreThickness = 1.0f;
+    if (coreThickness > 3.0f) coreThickness = 3.0f;
 
-    if (position == 0) // Top
+    // Soft glow (2 layers) + clean main line
+    ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(color);
+    for (int i = 2; i >= 1; --i)
     {
-        float barH = 3.5f;
-        drawList->AddRectFilled(ImVec2(x - 1, y - barH - 4), ImVec2(x + w + 1, y - 2), IM_COL32(0, 0, 0, 180), 1.0f);
-        drawList->AddRectFilled(ImVec2(x, y - barH - 3), ImVec2(x + (w * percent), y - 3), hpColor, 1.0f);
+        float alpha = 0.12f * (float)i;
+        ImU32 glowColor = ImGui::ColorConvertFloat4ToU32(
+            ImVec4(colorVec.x, colorVec.y, colorVec.z, alpha));
+        drawList->AddLine(start, end, glowColor, coreThickness + (float)i * 0.8f);
     }
-    else if (position == 1) // Left
+
+    drawList->AddLine(start, end, color, coreThickness);
+    drawList->AddCircleFilled(start, 2.5f, color, 8);
+}
+
+void DrawGlowLineGradient(const ImVec2& start, const ImVec2& end, float thickness, float glowRadius, float feather)
+{
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    if (!drawList) return;
+    if (!IsFinite2(start.x, start.y) || !IsFinite2(end.x, end.y)) return;
+    if (feather < 0.01f) feather = 0.10f;
+
+    const int segments = 16;
+    ImVec2 diff(
+        (end.x - start.x) / segments,
+        (end.y - start.y) / segments
+    );
+
+    float time = (float)ImGui::GetTime();
+    float speed = 0.3f;
+
+    int glowLayers = (int)(glowRadius / feather);
+    if (glowLayers > 2) glowLayers = 2;
+    if (glowLayers < 1) glowLayers = 1;
+
+    float coreThickness = thickness < 0.5f ? 1.0f : thickness;
+
+    for (int i = 0; i < segments; i++)
     {
-        float barW = 3.5f;
-        drawList->AddRectFilled(ImVec2(x - barW - 4, y - 1), ImVec2(x - 2, y + h + 1), IM_COL32(0, 0, 0, 180), 1.0f);
-        float fillH = h * percent;
-        drawList->AddRectFilled(ImVec2(x - barW - 3, y + h - fillH), ImVec2(x - 3, y + h), hpColor, 1.0f);
+        ImVec2 segStart(start.x + diff.x * i, start.y + diff.y * i);
+        ImVec2 segEnd(start.x + diff.x * (i + 1), start.y + diff.y * (i + 1));
+
+        float t = (float)i / segments;
+        float hue = fmodf(t + time * speed, 1.0f);
+        ImVec4 colorVec = HSVtoRGB(hue, 1.f, 1.f);
+
+        for (int g = glowLayers; g > 0; g--)
+        {
+            float alpha = (float)g / glowLayers * 0.12f;
+            ImU32 glowColor = ImGui::ColorConvertFloat4ToU32(
+                ImVec4(colorVec.x, colorVec.y, colorVec.z, alpha)
+            );
+            drawList->AddLine(segStart, segEnd, glowColor, coreThickness + g);
+        }
+
+        ImU32 mainColor = ImGui::ColorConvertFloat4ToU32(colorVec);
+        drawList->AddLine(segStart, segEnd, mainColor, coreThickness);
     }
-    else // Below
+}
+
+void DrawGlowCorneredBox(float x, float y, float w, float h, ImColor color, float thickness, float glowRadius, float feather, bool fillEnabled)
+{
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    if (!drawList || !IsFinite2(x, y) || !IsFinite2(w, h)) return;
+    if (w < 4.0f || h < 4.0f) return;
+
+    if (fillEnabled)
     {
-        float barH = 3.5f;
-        drawList->AddRectFilled(ImVec2(x - 1, y + h + 3), ImVec2(x + w + 1, y + h + barH + 5), IM_COL32(0, 0, 0, 180), 1.0f);
-        drawList->AddRectFilled(ImVec2(x, y + h + 4), ImVec2(x + (w * percent), y + h + barH + 4), hpColor, 1.0f);
+        drawList->AddRectFilled(
+            ImVec2(x, y),
+            ImVec2(x + w, y + h),
+            ImColor(
+                g_Globals.Visuals.FillColor[0],
+                g_Globals.Visuals.FillColor[1],
+                g_Globals.Visuals.FillColor[2],
+                g_Globals.Visuals.FillColor[3]
+            ),
+            5.0f
+        );
     }
+
+    ImU32 boxColorU32 = color;
+    float lineW = w / 3.0f;
+    float lineH = h / 3.0f;
+    float t = (thickness > 0.5f) ? thickness : 1.2f;
+
+    // Top Left
+    drawList->AddLine(ImVec2(x, y - t * 0.5f), ImVec2(x, y + lineH), boxColorU32, t);
+    drawList->AddLine(ImVec2(x - t * 0.5f, y), ImVec2(x + lineW, y), boxColorU32, t);
+
+    // Top Right
+    drawList->AddLine(ImVec2(x + w - lineW, y), ImVec2(x + w + t * 0.5f, y), boxColorU32, t);
+    drawList->AddLine(ImVec2(x + w, y - t * 0.5f), ImVec2(x + w, y + lineH), boxColorU32, t);
+
+    // Bottom Left
+    drawList->AddLine(ImVec2(x, y + h - lineH), ImVec2(x, y + h + t * 0.5f), boxColorU32, t);
+    drawList->AddLine(ImVec2(x - t * 0.5f, y + h), ImVec2(x + lineW, y + h), boxColorU32, t);
+
+    // Bottom Right
+    drawList->AddLine(ImVec2(x + w - lineW, y + h), ImVec2(x + w + t * 0.5f, y + h), boxColorU32, t);
+    drawList->AddLine(ImVec2(x + w, y + h - lineH), ImVec2(x + w, y + h + t * 0.5f), boxColorU32, t);
+}
+
+void DrawFullBox(float x, float y, float w, float h, ImColor color, float thickness)
+{
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    if (!drawList || !IsFinite2(x, y) || !IsFinite2(w, h)) return;
+    if (w < 2.0f || h < 2.0f) return;
+
+    float t = (thickness > 0.5f) ? thickness : 1.5f;
+
+    if (g_Globals.Visuals.FillColorBox) {
+        drawList->AddRectFilled(
+            ImVec2(x, y),
+            ImVec2(x + w, y + h),
+            ImColor(
+                g_Globals.Visuals.FillColor[0],
+                g_Globals.Visuals.FillColor[1],
+                g_Globals.Visuals.FillColor[2],
+                g_Globals.Visuals.FillColor[3]
+            ),
+            5.0f
+        );
+    }
+
+    drawList->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), color, 5.0f, 0, t);
+}
+
+static void DrawMvpGlowHealthBar(ImDrawList* drawList, ImVec2 min, ImVec2 max, ImU32 color)
+{
+    if (!drawList) return;
+    ImVec4 c = ImGui::ColorConvertU32ToFloat4(color);
+    for (int i = 2; i >= 1; i--) {
+        float expand = i * 0.55f;
+        float alpha = 0.06f + 0.05f * (3 - i);
+        drawList->AddRectFilled(
+            ImVec2(min.x - expand, min.y - expand * 0.2f),
+            ImVec2(max.x + expand, max.y + expand * 0.2f),
+            ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, alpha)),
+            1.0f);
+    }
+    drawList->AddRectFilled(min, max, color, 1.0f);
+}
+
+void DrawVerticalHealthBar(short CurrentHealth, short MaxHealth, ImVec2 Position, float TotalHeight)
+{
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+    if (!drawList || MaxHealth <= 0 || TotalHeight <= 1.0f || !IsFinite2(Position.x, Position.y)) return;
+
+    float healthPercent = static_cast<float>(CurrentHealth) / static_cast<float>(MaxHealth);
+    healthPercent = SafeClamp(healthPercent, 0.0f, 1.0f);
+    const float barWidth = 3.0f;
+    float filledHeight = TotalHeight * healthPercent;
+    float top = Position.y + (TotalHeight - filledHeight);
+
+    ImU32 healthColor =
+        (healthPercent > 0.66f) ? IM_COL32(46, 204, 113, 255) :
+        (healthPercent > 0.33f) ? IM_COL32(241, 196, 15, 255) :
+                                  IM_COL32(231, 76, 60, 255);
+
+    drawList->AddRectFilled(
+        ImVec2(Position.x, Position.y),
+        ImVec2(Position.x + barWidth, Position.y + TotalHeight),
+        IM_COL32(80, 80, 80, 120), 1.0f);
+
+    drawList->AddRectFilled(
+        ImVec2(Position.x, top),
+        ImVec2(Position.x + barWidth, Position.y + TotalHeight),
+        healthColor, 1.0f);
+}
+
+void DrawHorizontalHealthBarTop(short CurrentHealth, short MaxHealth, float x, float y, float w)
+{
+    ImDrawList* DrawList = ImGui::GetForegroundDrawList();
+    if (!DrawList || MaxHealth <= 0 || w <= 1.0f || !IsFinite2(x, y)) return;
+
+    float healthPercent = static_cast<float>(CurrentHealth) / static_cast<float>(MaxHealth);
+    healthPercent = SafeClamp(healthPercent, 0.0f, 1.0f);
+    float healthBarHeight = 3.0f;
+    float filledW = w * healthPercent;
+
+    ImU32 healthColor =
+        (healthPercent > 0.66f) ? IM_COL32(46, 204, 113, 255) :
+        (healthPercent > 0.33f) ? IM_COL32(241, 196, 15, 255) :
+                                  IM_COL32(231, 76, 60, 255);
+
+    DrawList->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + healthBarHeight), IM_COL32(80, 80, 80, 120), 1.0f);
+    DrawList->AddRectFilled(ImVec2(x, y), ImVec2(x + filledW, y + healthBarHeight), healthColor, 1.0f);
+}
+
+void DrawHealthBarBelowFullBox(short CurrentHealth, short MaxHealth, float x, float y, float w, float h)
+{
+    ImDrawList* DrawList = ImGui::GetForegroundDrawList();
+    if (!DrawList || MaxHealth <= 0 || w <= 1.0f || !IsFinite2(x, y)) return;
+
+    float healthPercent = static_cast<float>(CurrentHealth) / static_cast<float>(MaxHealth);
+    healthPercent = SafeClamp(healthPercent, 0.0f, 1.0f);
+    float BarHeight = 3.0f;
+    float offsetY = 4.0f;
+    float filledW = w * healthPercent;
+
+    ImU32 healthColor =
+        (healthPercent > 0.66f) ? IM_COL32(46, 204, 113, 255) :
+        (healthPercent > 0.33f) ? IM_COL32(241, 196, 15, 255) :
+                                  IM_COL32(231, 76, 60, 255);
+
+    DrawList->AddRectFilled(
+        ImVec2(x, y + h + offsetY),
+        ImVec2(x + w, y + h + offsetY + BarHeight),
+        IM_COL32(80, 80, 80, 120), 1.0f);
+
+    DrawList->AddRectFilled(
+        ImVec2(x, y + h + offsetY),
+        ImVec2(x + filledW, y + h + offsetY + BarHeight),
+        healthColor, 1.0f);
 }
 
 void DrawCrosshairRadar()
@@ -90,7 +285,6 @@ void DrawCrosshairRadar()
     float size = g_Globals.Visuals.RadarSize;
     float halfSize = size * 0.5f;
 
-    // Background
     drawList->AddRectFilled(ImVec2(center.x - halfSize, center.y - halfSize),
                             ImVec2(center.x + halfSize, center.y + halfSize),
                             IM_COL32(18, 18, 24, 210), 6.0f);
@@ -98,12 +292,10 @@ void DrawCrosshairRadar()
                       ImVec2(center.x + halfSize, center.y + halfSize),
                       IM_COL32(80, 80, 100, 180), 6.0f, 0, 1.0f);
 
-    // Cross axes
     drawList->AddLine(ImVec2(center.x - halfSize + 5, center.y), ImVec2(center.x + halfSize - 5, center.y), IM_COL32(120, 120, 140, 100));
     drawList->AddLine(ImVec2(center.x, center.y - halfSize + 5), ImVec2(center.x, center.y + halfSize - 5), IM_COL32(120, 120, 140, 100));
     drawList->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
 
-    // Entities on radar
     std::vector<std::pair<uint64_t, Player>> entitiesSnapshot;
     {
         std::shared_lock<std::shared_mutex> lock(g_Globals.EspConfig.EntitiesMutex);
@@ -120,7 +312,8 @@ void DrawCrosshairRadar()
 
     for (const auto& [id, player] : entitiesSnapshot)
     {
-        if (player.IsDead || !player.IsKnown) continue;
+        if (player.IsDead || !player.IsKnown || player.Address == 0) continue;
+        if (player.Distance <= 0.5f || player.Distance > radarRange) continue;
 
         Vector3 diff = player.Root - camPos;
         float dist = std::sqrt(diff.X * diff.X + diff.Z * diff.Z);
@@ -137,214 +330,477 @@ void DrawCrosshairRadar()
 
 void Players()
 {
-    if (!g_Globals.Visuals.Enable) return;
-    if (!g_Globals.EspConfig.Matrix || !g_Globals.EspConfig.InMatch) return;
-
-    ImGuiIO& io = ImGui::GetIO();
-    float screenW = io.DisplaySize.x;
-    float screenH = io.DisplaySize.y;
-    if (screenW < 100.0f || screenH < 100.0f) return;
-
-    g_Globals.EspConfig.Width = (int)screenW;
-    g_Globals.EspConfig.Height = (int)screenH;
-
-    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-    if (!drawList) return;
-
-    // Snapshot under shared lock to prevent thread race crashes
-    std::vector<std::pair<uint64_t, Player>> entitiesSnapshot;
+    try
     {
-        std::shared_lock<std::shared_mutex> lock(g_Globals.EspConfig.EntitiesMutex);
-        if (!g_Globals.EspConfig.InMatch || !g_Globals.EspConfig.Matrix)
-            return;
-        entitiesSnapshot.reserve(g_Globals.EspConfig.Entities.size());
-        for (const auto& kv : g_Globals.EspConfig.Entities)
-            entitiesSnapshot.emplace_back(kv.first, kv.second);
-    }
+        if (!g_Globals.EspConfig.Matrix) return;
+        if (!g_Globals.EspConfig.InMatch) return;
+        if (g_Globals.EspConfig.Width < 64 || g_Globals.EspConfig.Height < 64) return;
 
-    auto W2SFunc = [&](const Vector3& pos) -> ImVec2
-    {
-        return W2S::WorldToScreenImVec2(g_Globals.EspConfig.ViewMatrix, pos, (int)screenW, (int)screenH);
-    };
-
-    ImU32 boxCol = ImGui::ColorConvertFloat4ToU32(ImVec4(
-        g_Globals.Visuals.BoxColor[0], g_Globals.Visuals.BoxColor[1],
-        g_Globals.Visuals.BoxColor[2], g_Globals.Visuals.BoxColor[3]
-    ));
-
-    ImU32 skelCol = ImGui::ColorConvertFloat4ToU32(ImVec4(
-        g_Globals.Visuals.SkeletonColor[0], g_Globals.Visuals.SkeletonColor[1],
-        g_Globals.Visuals.SkeletonColor[2], g_Globals.Visuals.SkeletonColor[3]
-    ));
-
-    ImU32 lineCol = ImGui::ColorConvertFloat4ToU32(ImVec4(
-        g_Globals.Visuals.LinesColor[0], g_Globals.Visuals.LinesColor[1],
-        g_Globals.Visuals.LinesColor[2], g_Globals.Visuals.LinesColor[3]
-    ));
-
-    for (const auto& [entityID, player] : entitiesSnapshot)
-    {
-        if (player.IsDead || !player.IsKnown || player.Address == 0)
-            continue;
-
-        if (player.Distance > g_Globals.Visuals.DistanceEsp)
-            continue;
-
-        ImVec2 headPos = W2SFunc(player.Head);
-        ImVec2 rootPos = W2SFunc(player.Root);
-
-        // Strict screen boundary test
-        if (!IsFinite2(headPos.x, headPos.y) || !IsFinite2(rootPos.x, rootPos.y))
-            continue;
-        if (headPos.x <= 0.0f || headPos.y <= 0.0f || rootPos.x <= 0.0f || rootPos.y <= 0.0f)
-            continue;
-        if (headPos.x >= screenW || rootPos.x >= screenW || headPos.y >= screenH || rootPos.y >= screenH)
-            continue;
-
-        // Box Dimensions
-        float boxH = fabsf(rootPos.y - headPos.y);
-        if (boxH < 8.0f) boxH = 40.0f;
-        float boxW = boxH * 0.55f;
-        float boxX = headPos.x - (boxW * 0.5f);
-        float boxY = headPos.y - (boxH * 0.12f);
-
-        // 1. Box ESP
-        if (g_Globals.Visuals.Box)
+        // Snapshot under shared lock to prevent thread race condition
+        std::vector<std::pair<uint64_t, Player>> entitiesSnapshot;
         {
-            if (g_Globals.Visuals.FilledBox)
+            std::shared_lock<std::shared_mutex> lock(g_Globals.EspConfig.EntitiesMutex);
+            if (!g_Globals.EspConfig.InMatch || !g_Globals.EspConfig.Matrix)
+                return;
+            entitiesSnapshot.reserve(g_Globals.EspConfig.Entities.size());
+            for (const auto& kv : g_Globals.EspConfig.Entities)
+                entitiesSnapshot.emplace_back(kv.first, kv.second);
+        }
+
+        const float screenW = (float)g_Globals.EspConfig.Width;
+        const float screenH = (float)g_Globals.EspConfig.Height;
+
+        // ----------------------------------------------------
+        // Enemy Count Badge (leakproject style)
+        // ----------------------------------------------------
+        if (g_Globals.Visuals.ShowNearEnemyCount)
+        {
+            int totalAlive = 0;
+            for (const auto& pair : entitiesSnapshot)
             {
-                ImU32 fillCol = ImGui::ColorConvertFloat4ToU32(ImVec4(
-                    g_Globals.Visuals.Filledboxcolor[0], g_Globals.Visuals.Filledboxcolor[1],
-                    g_Globals.Visuals.Filledboxcolor[2], g_Globals.Visuals.Filledboxcolor[3]));
-                drawList->AddRectFilled(ImVec2(boxX, boxY), ImVec2(boxX + boxW, boxY + boxH), fillCol, 2.0f);
+                const auto& entity = pair.second;
+                if (entity.IsDead || entity.IsKnocked || entity.Pose == XPose::Knocked || !entity.IsKnown || entity.Address == 0)
+                    continue;
+                if (entity.Head == Vector3::Zero() && entity.Root == Vector3::Zero())
+                    continue;
+                if (entity.Distance <= 0.5f)
+                    continue;
+
+                totalAlive++;
             }
 
-            if (g_Globals.Visuals.players_box == 1) // Corner Box
+            ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+            if (drawList)
             {
-                DrawCornerBox(drawList, boxX, boxY, boxW, boxH, boxCol, 1.4f);
-            }
-            else // Normal 2D Box
-            {
-                drawList->AddRect(ImVec2(boxX, boxY), ImVec2(boxX + boxW, boxY + boxH), boxCol, 2.0f, 0, 1.2f);
-                drawList->AddRect(ImVec2(boxX - 1, boxY - 1), ImVec2(boxX + boxW + 1, boxY + boxH + 1), IM_COL32(0, 0, 0, 160), 2.0f, 0, 1.0f);
+                std::string countText = std::to_string(totalAlive);
+                ImVec2 textSize = ImGui::CalcTextSize(countText.c_str());
+
+                float paddingLeft = 10.0f;
+                float paddingRight = 12.0f;
+                float iconWidth = 14.0f;
+                float spacing = 8.0f;
+
+                float totalWidth = paddingLeft + iconWidth + spacing + textSize.x + paddingRight;
+                float badgeHeight = 26.0f;
+
+                float badgeX = (screenW - totalWidth) * 0.5f;
+                float badgeY = 75.0f;
+
+                ImVec2 badgeMin(badgeX, badgeY);
+                ImVec2 badgeMax(badgeX + totalWidth, badgeY + badgeHeight);
+
+                // Background
+                drawList->AddRectFilled(badgeMin, badgeMax, IM_COL32(24, 28, 36, 230), 6.0f);
+                drawList->AddRect(badgeMin, badgeMax, IM_COL32(50, 58, 70, 255), 6.0f, 0, 1.2f);
+
+                // Blue player icon
+                ImVec2 iconCenter(badgeX + paddingLeft + iconWidth * 0.5f, badgeY + badgeHeight * 0.5f);
+                ImU32 iconColor = IM_COL32(52, 152, 219, 255);
+
+                // Head circle
+                float headRadius = 3.0f;
+                ImVec2 headCenter(iconCenter.x, iconCenter.y - 2.8f);
+                drawList->AddCircleFilled(headCenter, headRadius, iconColor, 12);
+
+                // Shoulders
+                drawList->AddRectFilled(
+                    ImVec2(iconCenter.x - 5.0f, iconCenter.y + 0.8f),
+                    ImVec2(iconCenter.x + 5.0f, iconCenter.y + 6.8f),
+                    iconColor,
+                    2.0f,
+                    ImDrawFlags_RoundCornersTop
+                );
+
+                // Text
+                ImVec2 textPos(badgeX + paddingLeft + iconWidth + spacing, badgeY + (badgeHeight - textSize.y) * 0.5f - 0.5f);
+                drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), countText.c_str());
             }
         }
 
-        // 2. Skeleton Bones
-        if (g_Globals.Visuals.Skeleton)
+        // ----------------------------------------------------
+        // Players Loop
+        // ----------------------------------------------------
+        auto W2SFast = [&](const Vector3& pos) -> ImVec2
         {
-            ImVec2 neckPos = W2SFunc(player.Neck);
-            ImVec2 lShoulder = W2SFunc(player.LeftShoulder);
-            ImVec2 rShoulder = W2SFunc(player.RightShoulder);
-            ImVec2 lElbow = W2SFunc(player.LeftElbow);
-            ImVec2 rElbow = W2SFunc(player.RightElbow);
-            ImVec2 lWrist = W2SFunc(player.LeftWrist);
-            ImVec2 rWrist = W2SFunc(player.RightWrist);
-            ImVec2 hip = W2SFunc(player.Hip);
-            ImVec2 lAnkle = W2SFunc(player.LeftAnkle);
-            ImVec2 rAnkle = W2SFunc(player.RightAnkle);
-            ImVec2 lFoot = W2SFunc(player.LeftFoot);
-            ImVec2 rFoot = W2SFunc(player.RightFoot);
+            return W2S::WorldToScreenImVec2(
+                g_Globals.EspConfig.ViewMatrix,
+                pos,
+                g_Globals.EspConfig.Width,
+                g_Globals.EspConfig.Height
+            );
+        };
 
-            float thick = g_Globals.Visuals.SkeletonThickness;
+        for (auto& [entityID, player] : entitiesSnapshot)
+        {
+            if (!g_Globals.EspConfig.InMatch || !g_Globals.EspConfig.Matrix)
+                break;
 
-            auto DrawBoneLine = [&](ImVec2 a, ImVec2 b) {
-                if (IsFinite2(a.x, a.y) && IsFinite2(b.x, b.y) && a.x > 0 && a.y > 0 && b.x > 0 && b.y > 0)
+            // Reject dead, unknown, null address entities
+            if (player.IsDead || !player.IsKnown || player.Address == 0)
+                continue;
+
+            // Strict zero-coordinate ghost entity filter (CRITICAL FOR TRAINING GROUNDS)
+            if (player.Head == Vector3::Zero() && player.Root == Vector3::Zero())
+                continue;
+
+            // Distance filter: distance <= 0.5m indicates dummy/inactive/camera origin object
+            float dist = player.Distance;
+            if (dist <= 0.5f || dist > g_Globals.Visuals.DistanceEsp)
+                continue;
+
+            // Visibility check
+            if (!g_Globals.Visuals.Wukong && !player.IsVisible)
+                continue;
+
+            // Core Bones
+            ImVec2 headPos = W2SFast(player.Head);
+            ImVec2 rootPos = W2SFast(player.Root);
+
+            // Strict off-screen check
+            if (!IsFinite2(headPos.x, headPos.y) || !IsFinite2(rootPos.x, rootPos.y))
+                continue;
+
+            if (headPos.x <= 0.f || headPos.y <= 0.f ||
+                rootPos.x <= 0.f || rootPos.y <= 0.f ||
+                headPos.x >= screenW || rootPos.x >= screenW ||
+                headPos.y >= screenH || rootPos.y >= screenH)
+            {
+                continue;
+            }
+
+            // Remaining Bones for Skeleton / Box
+            ImVec2 neckPos = W2SFast(player.Neck);
+            ImVec2 leftShoulderPos = W2SFast(player.LeftShoulder);
+            ImVec2 rightShoulderPos = W2SFast(player.RightShoulder);
+            ImVec2 leftElbowPos = W2SFast(player.LeftElbow);
+            ImVec2 rightElbowPos = W2SFast(player.RightElbow);
+            ImVec2 leftWristPos = W2SFast(player.LeftWrist);
+            ImVec2 rightWristPos = W2SFast(player.RightWrist);
+            ImVec2 hipPos = W2SFast(player.Hip);
+            ImVec2 leftAnklePos = W2SFast(player.LeftAnkle);
+            ImVec2 rightAnklePos = W2SFast(player.RightAnkle);
+
+            // Hip calculations
+            Vector3 ankleDiff = player.LeftAnkle - player.RightAnkle;
+            float ankleDistance = ankleDiff.Magnitude(true);
+            if (ankleDistance < 0.001f) ankleDistance = 0.001f;
+            Vector3 hipDir = ankleDiff / ankleDistance;
+            float baseHipWidth = ankleDistance * g_Globals.Visuals.HipWidthScale;
+            Vector3 leftBase = Vector3::Lerp(player.LeftAnkle, player.Hip, g_Globals.Visuals.LeftHipHeightOffset);
+            Vector3 rightBase = Vector3::Lerp(player.RightAnkle, player.Hip, g_Globals.Visuals.RightHipHeightOffset);
+            Vector3 leftHip = leftBase + hipDir * (baseHipWidth * g_Globals.Visuals.HipWidthOffset);
+            Vector3 rightHip = rightBase - hipDir * (baseHipWidth * g_Globals.Visuals.HipWidthOffset);
+            ImVec2 leftHipPosition = W2SFast(leftHip);
+            ImVec2 rightHipPosition = W2SFast(rightHip);
+
+            // Box dimensions
+            Vector3 standingHead3D = player.Root;
+            standingHead3D.Y += 1.7f;
+            ImVec2 standingHeadPos = W2SFast(standingHead3D);
+            float standingBoxHeight = fabsf(standingHeadPos.y - rootPos.y);
+            if (standingBoxHeight < 5.0f) standingBoxHeight = 50.0f;
+
+            float boxHeight = 0.0f;
+            float boxWidth = 0.0f;
+
+            if (player.Pose == XPose::Knocked || player.IsKnocked)
+            {
+                boxHeight = standingBoxHeight * 0.45f;
+                boxWidth = standingBoxHeight * 0.90f;
+            }
+            else
+            {
+                boxHeight = fabsf(headPos.y - rootPos.y);
+                if (boxHeight < 5.0f) boxHeight = standingBoxHeight;
+                boxWidth = boxHeight * 0.65f;
+            }
+
+            float ogH = boxHeight;
+            float ogW = boxWidth;
+            float ogX = headPos.x - (ogW * 0.5f);
+            float ogY = headPos.y;
+
+            // ==========================================
+            // 1. ESP Snapline
+            // ==========================================
+            if (g_Globals.Visuals.Lines)
+            {
+                ImColor snapLineColor = ImColor(
+                    g_Globals.Visuals.LinesColor[0],
+                    g_Globals.Visuals.LinesColor[1],
+                    g_Globals.Visuals.LinesColor[2],
+                    g_Globals.Visuals.LinesColor[3]
+                );
+
+                if (g_Globals.Visuals.RainbowLines)
                 {
-                    drawList->AddLine(a, b, skelCol, thick);
+                    float t = (float)ImGui::GetTime();
+                    float hue = fmodf(t * 0.30f, 1.0f);
+                    snapLineColor = ImColor(HSVtoRGB(hue, 1.f, 1.f));
                 }
-            };
+                else
+                {
+                    if (g_Globals.Visuals.Wukong)
+                        snapLineColor = ImColor(0.6f, 0.0f, 1.0f, 1.0f);
+                }
 
-            DrawBoneLine(headPos, neckPos);
-            DrawBoneLine(neckPos, lShoulder);
-            DrawBoneLine(lShoulder, lElbow);
-            DrawBoneLine(lElbow, lWrist);
+                if (player.Pose == XPose::Knocked || player.IsKnocked)
+                {
+                    float pulse = (sinf((float)ImGui::GetTime() * 5.0f) + 1.0f) * 0.5f;
+                    snapLineColor = ImColor(1.f, 0.f, 0.f, 0.5f + 0.5f * pulse);
+                }
 
-            DrawBoneLine(neckPos, rShoulder);
-            DrawBoneLine(rShoulder, rElbow);
-            DrawBoneLine(rElbow, rWrist);
+                ImU32 lineColorU32 = snapLineColor;
+                ImVec2 screenTopMid(screenW * 0.5f, 2.5f);
+                ImVec2 screenBottom(screenW * 0.5f, screenH - 2.5f);
+                ImVec2 attachPoint(headPos.x, headPos.y);
 
-            DrawBoneLine(neckPos, hip);
-            DrawBoneLine(hip, lAnkle);
-            DrawBoneLine(lAnkle, lFoot);
+                float thickness = g_Globals.Visuals.LineThickness;
+                if (thickness < 0.5f) thickness = 1.0f;
+                float glowRadius = g_Globals.Visuals.GlowRadius;
+                float glowFeather = g_Globals.Visuals.GlowFeather;
 
-            DrawBoneLine(hip, rAnkle);
-            DrawBoneLine(rAnkle, rFoot);
-        }
+                auto DrawLineFunc = [&](const ImVec2& a, const ImVec2& b)
+                {
+                    if (g_Globals.Visuals.RainbowLines)
+                        DrawGlowLineGradient(a, b, thickness, glowRadius, glowFeather);
+                    else if (g_Globals.Visuals.GlowLines)
+                        DrawGlowLine(a, b, lineColorU32, thickness, glowRadius, glowFeather);
+                    else
+                    {
+                        ImDrawList* dl = ImGui::GetBackgroundDrawList();
+                        if (dl) dl->AddLine(a, b, lineColorU32, thickness);
+                    }
+                };
 
-        // 3. Head Dot / Circle
-        if (g_Globals.Visuals.HeadDot && IsFinite2(headPos.x, headPos.y))
-        {
-            ImU32 headDotCol = ImGui::ColorConvertFloat4ToU32(ImVec4(
-                g_Globals.Visuals.HeadDotColor[0], g_Globals.Visuals.HeadDotColor[1],
-                g_Globals.Visuals.HeadDotColor[2], g_Globals.Visuals.HeadDotColor[3]));
-            drawList->AddCircleFilled(headPos, g_Globals.Visuals.HeadDotSize, headDotCol);
-            drawList->AddCircle(headPos, g_Globals.Visuals.HeadDotSize + 0.5f, IM_COL32(0, 0, 0, 180), 0, 1.0f);
-        }
+                switch (g_Globals.Visuals.EspLines)
+                {
+                case 1: DrawLineFunc(screenTopMid, attachPoint); break;
+                case 2: DrawLineFunc(screenBottom, attachPoint); break;
+                default: DrawLineFunc(screenTopMid, attachPoint); break;
+                }
+            }
 
-        // 4. Snaplines
-        if (g_Globals.Visuals.Lines)
-        {
-            ImVec2 lineStart;
-            if (g_Globals.Visuals.EspLines == 0)      lineStart = ImVec2(screenW * 0.5f, 0.0f); // Top
-            else if (g_Globals.Visuals.EspLines == 1) lineStart = ImVec2(screenW * 0.5f, screenH); // Bottom
-            else if (g_Globals.Visuals.EspLines == 2) lineStart = ImVec2(0.0f, screenH * 0.5f); // Left
-            else if (g_Globals.Visuals.EspLines == 3) lineStart = ImVec2(screenW, screenH * 0.5f); // Right
-            else                                     lineStart = ImVec2(screenW * 0.5f, screenH * 0.5f); // Crosshair
-
-            drawList->AddLine(lineStart, rootPos, lineCol, 1.1f);
-        }
-
-        // 5. Health Bar
-        if (g_Globals.Visuals.HealthBar)
-        {
-            DrawHealthBar(drawList, player.Health, 200, boxX, boxY, boxW, boxH, g_Globals.Visuals.players_healthbar);
-        }
-
-        // 6. Name, Weapon & Distance Text Tags
-        float textY = boxY - 14.0f;
-
-        // Player Name
-        if (g_Globals.Visuals.Name && !player.Name.empty())
-        {
-            std::string nameStr = player.Name;
-            ImVec2 txtSz = ImGui::CalcTextSize(nameStr.c_str());
-            ImVec2 txtPos = ImVec2(boxX + (boxW - txtSz.x) * 0.5f, textY);
-
-            drawList->AddRectFilled(ImVec2(txtPos.x - 3, txtPos.y - 1), ImVec2(txtPos.x + txtSz.x + 3, txtPos.y + txtSz.y + 1), IM_COL32(10, 10, 14, 180), 2.0f);
-            drawList->AddText(txtPos, IM_COL32(255, 255, 255, 255), nameStr.c_str());
-            textY -= (txtSz.y + 3.0f);
-        }
-
-        // Bottom Tags: Weapon & Distance
-        float bottomY = boxY + boxH + ((g_Globals.Visuals.HealthBar && g_Globals.Visuals.players_healthbar == 2) ? 8.0f : 3.0f);
-
-        if (g_Globals.Visuals.ESPWeapon && player.WeaponID != 0)
-        {
-            std::string gunName = Namegun::GetGunName(player.WeaponID);
-            if (!gunName.empty())
+            // ==========================================
+            // 2. ESP Skeleton
+            // ==========================================
+            if (g_Globals.Visuals.Skeleton)
             {
-                ImVec2 txtSz = ImGui::CalcTextSize(gunName.c_str());
-                ImVec2 txtPos = ImVec2(boxX + (boxW - txtSz.x) * 0.5f, bottomY);
+                ImColor skeletonColor = ImColor(
+                    g_Globals.Visuals.SkeletonColor[0],
+                    g_Globals.Visuals.SkeletonColor[1],
+                    g_Globals.Visuals.SkeletonColor[2],
+                    g_Globals.Visuals.SkeletonColor[3]
+                );
 
-                drawList->AddRectFilled(ImVec2(txtPos.x - 3, txtPos.y - 1), ImVec2(txtPos.x + txtSz.x + 3, txtPos.y + txtSz.y + 1), IM_COL32(10, 10, 14, 180), 2.0f);
-                drawList->AddText(txtPos, IM_COL32(255, 215, 0, 255), gunName.c_str());
-                bottomY += txtSz.y + 2.0f;
+                if (player.IsKnocked || player.Pose == XPose::Knocked)
+                    skeletonColor = ImColor(1.f, 0.f, 0.f, 1.f);
+
+                float boneThickness = g_Globals.Visuals.SkeletonThickness;
+                if (boneThickness < 0.5f) boneThickness = 1.0f;
+
+                ImDrawList* skelDraw = ImGui::GetForegroundDrawList();
+                if (skelDraw)
+                {
+                    auto DrawBone = [&](const ImVec2& from, const ImVec2& to) {
+                        float dx = from.x - to.x;
+                        float dy = from.y - to.y;
+                        if ((dx * dx + dy * dy) >= 500.0f * 500.0f) return;
+                        skelDraw->AddLine(from, to, skeletonColor, boneThickness);
+                    };
+
+                    float shoulderWidth = std::abs(leftShoulderPos.x - rightShoulderPos.x);
+                    if (!std::isfinite(shoulderWidth)) shoulderWidth = 10.0f;
+                    float headRadius = SafeClamp(shoulderWidth * 0.15f, 2.5f, 6.0f);
+
+                    skelDraw->AddCircle(headPos, headRadius, skeletonColor, 12, boneThickness);
+                    DrawBone(headPos, neckPos);
+                    DrawBone(neckPos, leftShoulderPos);
+                    DrawBone(neckPos, rightShoulderPos);
+                    DrawBone(leftShoulderPos, leftElbowPos);
+                    DrawBone(rightShoulderPos, rightElbowPos);
+                    DrawBone(leftElbowPos, leftWristPos);
+                    DrawBone(rightElbowPos, rightWristPos);
+                    DrawBone(neckPos, hipPos);
+                    DrawBone(hipPos, leftHipPosition);
+                    DrawBone(leftHipPosition, leftAnklePos);
+                    DrawBone(hipPos, rightHipPosition);
+                    DrawBone(rightHipPosition, rightAnklePos);
+                }
+            }
+
+            // ==========================================
+            // 3. ESP Box
+            // ==========================================
+            if (g_Globals.Visuals.Box)
+            {
+                ImColor currentBoxColor = ImColor(
+                    g_Globals.Visuals.BoxColor[0],
+                    g_Globals.Visuals.BoxColor[1],
+                    g_Globals.Visuals.BoxColor[2],
+                    g_Globals.Visuals.BoxColor[3]
+                );
+
+                if (player.Pose == XPose::Knocked || player.IsKnocked)
+                    currentBoxColor = IM_COL32(255, 0, 0, 255);
+
+                float boxThick = 1.2f;
+                int currentBoxType = g_Globals.Visuals.players_box;
+
+                if (g_Globals.Visuals.FilledBox)
+                {
+                    ImColor fillColor = ImColor(
+                        g_Globals.Visuals.Filledboxcolor[0],
+                        g_Globals.Visuals.Filledboxcolor[1],
+                        g_Globals.Visuals.Filledboxcolor[2],
+                        g_Globals.Visuals.Filledboxcolor[3]
+                    );
+                    ImGui::GetForegroundDrawList()->AddRectFilled(
+                        ImVec2(ogX, ogY),
+                        ImVec2(ogX + ogW, ogY + ogH),
+                        fillColor, 5.0f);
+                }
+
+                if (currentBoxType == 1)
+                    DrawFullBox(ogX, ogY, ogW, ogH, currentBoxColor, boxThick);
+                else
+                    DrawGlowCorneredBox(ogX, ogY, ogW, ogH, currentBoxColor, boxThick, 0.0f, 0.0f, false);
+            }
+
+            // ==========================================
+            // 4. ESP Health Bar
+            // ==========================================
+            if (g_Globals.Visuals.HealthBar)
+            {
+                ImDrawList* DrawList = ImGui::GetForegroundDrawList();
+                if (DrawList)
+                {
+                    switch (g_Globals.Visuals.players_healthbar)
+                    {
+                    case 0: // None
+                        break;
+                    case 1: // Left
+                        DrawVerticalHealthBar(player.Health, 200, ImVec2(ogX - 6.0f, ogY), ogH);
+                        break;
+                    case 2: // Right (Default leakproject style)
+                    {
+                        float pct = SafeClamp((float)player.Health / 200.0f, 0.0f, 1.0f);
+                        if (player.Health > 1000) pct = 1.0f;
+                        if (player.Health < 0) pct = 1.0f;
+                        ImU32 hc = player.IsKnocked ? IM_COL32(255, 0, 0, 255)
+                            : (pct > 0.8f) ? IM_COL32(0, 255, 0, 255)
+                            : (pct > 0.4f) ? IM_COL32(255, 255, 0, 255)
+                            : IM_COL32(255, 0, 0, 255);
+                        if (pct > 0.01f)
+                        {
+                            float hbW = 3.0f;
+                            float hbX = ogX + ogW + 5.0f;
+                            DrawMvpGlowHealthBar(DrawList, ImVec2(hbX, ogY + ogH * (1.0f - pct)), ImVec2(hbX + hbW, ogY + ogH), hc);
+                        }
+                        break;
+                    }
+                    case 3: // Bottom
+                        DrawHealthBarBelowFullBox(player.Health, 200, ogX, ogY, ogW, ogH);
+                        break;
+                    case 4: // Text
+                    {
+                        char healthText[16];
+                        snprintf(healthText, sizeof(healthText), "%d HP", player.Health);
+                        float hpPercent = (float)player.Health / 200.0f;
+                        ImU32 mainColor = (hpPercent > 0.66f) ? IM_COL32(128, 255, 0, 255) :
+                                          (hpPercent > 0.33f) ? IM_COL32(255, 128, 0, 255) :
+                                                                IM_COL32(255, 0, 0, 255);
+                        DrawList->AddText(ImVec2(ogX + ogW + 7.0f, ogY + ogH * 0.5f), mainColor, healthText);
+                        break;
+                    }
+                    }
+                }
+            }
+
+            // ==========================================
+            // 5. Name, Distance, Level, Weapon Tags
+            // ==========================================
+            ImDrawList* drawList = ImGui::GetForegroundDrawList();
+            if (drawList)
+            {
+                float cx = headPos.x;
+                const float gap = 3.0f;
+                float y = ogY - gap;
+
+                // 1) Name above box
+                if (g_Globals.Visuals.Name)
+                {
+                    std::string displayName = player.Name.empty() ? "Enemy" : player.Name;
+                    ImVec2 nSize = ImGui::CalcTextSize(displayName.c_str());
+                    y -= nSize.y;
+                    ImVec2 namePos(cx - nSize.x * 0.5f, y);
+
+                    ImU32 nameCol = (player.IsKnocked || player.Pose == XPose::Knocked)
+                        ? IM_COL32(255, 0, 0, 255)
+                        : IM_COL32(255, 255, 255, 255);
+
+                    // Background shadow outline
+                    drawList->AddText(ImVec2(namePos.x + 1.f, namePos.y + 1.f), IM_COL32(0, 0, 0, 220), displayName.c_str());
+                    drawList->AddText(namePos, nameCol, displayName.c_str());
+                    y -= gap;
+                }
+
+                // 2) Weapon Name / Icon
+                if (g_Globals.Visuals.ESPWeapon || g_Globals.Visuals.ESPWeaponIcon)
+                {
+                    Namegun::Init();
+                    std::string fullName = Namegun::GetGunName(player.WeaponID);
+                    if (!fullName.empty())
+                    {
+                        ImVec2 sz = ImGui::CalcTextSize(fullName.c_str());
+                        float pad = 4.0f;
+                        float bw = sz.x + pad * 2.0f;
+                        float bx = cx - bw * 0.5f;
+                        y -= (sz.y + 3.0f);
+
+                        drawList->AddRectFilled(ImVec2(bx, y), ImVec2(bx + bw, y + sz.y + 3.0f), IM_COL32(20, 20, 20, 180), 3.0f);
+                        drawList->AddRect(ImVec2(bx, y), ImVec2(bx + bw, y + sz.y + 3.0f), IM_COL32(192, 0, 0, 220), 3.0f);
+                        drawList->AddText(ImVec2(bx + pad, y + 1.0f), IM_COL32(255, 255, 255, 255), fullName.c_str());
+                        y -= gap;
+                    }
+                }
+
+                // 3) Level badge on left of box
+                if (g_Globals.Visuals.Level && player.Level > 0)
+                {
+                    char lvBuf[16];
+                    snprintf(lvBuf, sizeof(lvBuf), "Lv.%d", player.Level);
+                    ImVec2 sz = ImGui::CalcTextSize(lvBuf);
+                    float lx = ogX - sz.x - 8.0f;
+                    float ly = ogY;
+
+                    ImU32 lvColor = (player.Level >= 60) ? IM_COL32(250, 1, 2, 255)
+                        : (player.Level >= 40) ? IM_COL32(255, 165, 0, 255)
+                        : IM_COL32(173, 255, 47, 255);
+
+                    drawList->AddRectFilled(ImVec2(lx - 2.f, ly), ImVec2(lx + sz.x + 2.f, ly + sz.y + 2.f), lvColor, 2.0f);
+                    drawList->AddText(ImVec2(lx, ly + 1.f), IM_COL32(0, 0, 0, 255), lvBuf);
+                }
+
+                // 4) Distance below box
+                if (g_Globals.Visuals.Distance)
+                {
+                    char distBuf[32];
+                    snprintf(distBuf, sizeof(distBuf), "[%d m]", static_cast<int>(std::round(dist)));
+                    ImVec2 dSize = ImGui::CalcTextSize(distBuf);
+                    ImVec2 dp(cx - dSize.x * 0.5f, ogY + ogH + 6.0f);
+
+                    drawList->AddText(ImVec2(dp.x + 1.f, dp.y + 1.f), IM_COL32(0, 0, 0, 220), distBuf);
+                    drawList->AddText(dp, IM_COL32(220, 220, 220, 255), distBuf);
+                }
             }
         }
 
-        if (g_Globals.Visuals.Distance)
-        {
-            std::string distStr = "[" + std::to_string(player.Distance) + "m]";
-            ImVec2 txtSz = ImGui::CalcTextSize(distStr.c_str());
-            ImVec2 txtPos = ImVec2(boxX + (boxW - txtSz.x) * 0.5f, bottomY);
-
-            drawList->AddRectFilled(ImVec2(txtPos.x - 3, txtPos.y - 1), ImVec2(txtPos.x + txtSz.x + 3, txtPos.y + txtSz.y + 1), IM_COL32(10, 10, 14, 180), 2.0f);
-            drawList->AddText(txtPos, IM_COL32(200, 200, 220, 255), distStr.c_str());
-        }
+        DrawCrosshairRadar();
     }
-
-    DrawCrosshairRadar();
+    catch (...)
+    {
+    }
 }
 
 void Render()
