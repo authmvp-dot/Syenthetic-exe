@@ -10,28 +10,37 @@ void c_notify::setup_notify()
     const float speed = 4.f;
 
     int cur_notify_value = 0;
-    for (int i = 0; i < notifications.size(); ++i)
+    for (int i = 0; i < (int)notifications.size();)
     {
         auto& notification = notifications[i];
 
         if (notification.active_notify)
             notification.notify_timer += speed * ImGui::GetIO().DeltaTime;
 
-        if (notification.notify_timer >= notification.notify_delay) notification.active_notify = false;
+        if (notification.notify_timer >= notification.notify_delay)
+            notification.active_notify = false;
 
         notification.notify_alpha = ImClamp(notification.notify_alpha + (gui->fixed_speed(4.f) * (notification.active_notify ? 1.f : -1.f)), 0.f, 1.f);
 
         notification.notify_offset = easing->im_ease(i, notification.active_notify, -(CalcTextSize(notification.text.data()).x + SCALE(120)), SCALE(20.f), gui->fixed_speed(14.f), back);
 
-        if (notification.notify_alpha <= 0.f && !notification.active_notify) cur_notify_value--;
+        if (!notification.active_notify && notification.notify_alpha <= 0.001f)
+        {
+            notifications.erase(notifications.begin() + i);
+            continue;
+        }
 
         render_notify(cur_notify_value, notification.notify_alpha, notification.notify_offset, notification.notify_timer, notification.notify_delay, notification.text, notification.type);
         cur_notify_value++;
+        ++i;
     }
 }
 
 void c_notify::render_notify(int notification_index, float notification_alpha, float notification_offset, float notification_duration, float notification_delay, std::string_view notification_text, notify_position notification_position)
 {
+    if (notification_alpha <= 0.001f)
+        return;
+
     float font_width = set->c_font.inter_medium[1]->CalcTextSizeA(set->c_font.inter_medium[1]->FontSize, FLT_MAX, -1, notification_text.data()).x;
     float percent_remaining = (notification_duration / notification_delay) * 100;
 
@@ -67,7 +76,7 @@ void c_notify::render_notify(int notification_index, float notification_alpha, f
 
     gui->push_style_var(ImGuiStyleVar_Alpha, notification_alpha);
 
-    gui->begin((std::stringstream() << "notify" << notification_index).str(), nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove);
+    gui->begin((std::stringstream() << "notify" << notification_index).str(), nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
     {
         const ImVec2 position = ImGui::GetWindowPos();
         const ImVec2 content_region = ImGui::GetContentRegionMax();

@@ -266,7 +266,7 @@ bool slider_scalar(std::string_view label, ImGuiDataType data_type, T* p_data, c
     for (int i = 0; i < num_bars; ++i) {
         float side_padding = SCALE(6.f);
         float x = slider.Min.x + (slider.GetWidth() - side_padding) / num_bars * i;
-        bool is_bar_active = (fraction >= ((float)i / (float)num_bars));
+        bool is_bar_active = (fraction > 0.02f && fraction >= ((float)(i + 0.5f) / (float)num_bars));
         state->alphab[i] = ImLerp(state->alphab[i], is_bar_active ? 1.f : 0.15f, gui->fixed_speed(16.f));
 
         state->height[i] = ImLerp(state->height[i], is_bar_active ? SCALE(7.5f) : SCALE(4.5f), gui->fixed_speed(12.f));

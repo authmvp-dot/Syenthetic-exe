@@ -121,10 +121,7 @@ void c_gui::render()
 				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(inactive_icon, ImVec4(1.f, 1.f, 1.f, 1.f), st->anim);
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max, gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.5f });
 
-				if (hovered)
-				{
-					widget->set_tooltip(tab_names[i], "");
-				}
+				widget->set_tooltip(tab_names[i], "");
 			}
 
 			gui->set_cursor_pos(SCALE(115, 15));
@@ -145,7 +142,7 @@ void c_gui::render()
 						{
 							if (widget->checkbox_with_key("Enable ragebot", &var->c_ragebot.ragebot, &var->c_ragebot.rage_key, &var->c_ragebot.rage_holding, &var->c_ragebot.rage_value, &var->c_ragebot.rage_show_binds))
 							{
-								notify->add_notify("You have successfully summoned a notification!", 15, static_cast<notify_position>(var->c_notify.notify_position));
+								notify->add_notify("You have successfully summoned a notification!", 4, static_cast<notify_position>(var->c_notify.notify_position));
 							};
 
 							widget->separator();
@@ -462,7 +459,7 @@ void c_gui::render()
 							widget->slider_int("DPI", &var->c_dpi.dpi_saved, 100, 200, 1, "%d%%");
 
 							if (var->c_dpi.dpi != var->c_dpi.dpi_saved / 100.f && IsMouseReleased(ImGuiMouseButton_Left)) {
-								notify->add_notify("You have successfully set the menu size", 15, static_cast<notify_position>(var->c_notify.notify_position));
+								notify->add_notify("You have successfully set the menu size", 4, static_cast<notify_position>(var->c_notify.notify_position));
 								var->c_dpi.dpi_changed = true;
 							}
 

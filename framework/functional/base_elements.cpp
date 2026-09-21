@@ -50,7 +50,11 @@ bool c_widget::begin_popup(std::string_view name, float size_w, const ImVec2& po
     gui->set_next_window_pos(g.LastItemData.Rect.GetBL() + position);
     gui->set_next_window_size(ImVec2(SCALE(size_w), content_size.y));
 
-    gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGuiWindowFlags popup_flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse;
+    if (!state->window_opened)
+        popup_flags |= ImGuiWindowFlags_NoInputs;
+
+    gui->begin((std::stringstream{} << id << " - popup").str().c_str(), nullptr, popup_flags);
 
     state->hovered = IsMouseHoveringRect(GetWindowPos(), GetWindowPos() + GetWindowSize());
     content_size = GetContentRegionAvail();
@@ -70,7 +74,7 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
 {
     ImGuiWindow* window = GetCurrentWindow();
 
-    const ImGuiID id = window->GetID(tooltip_text.data());
+    const ImGuiID id = window->GetID(tooltip_id.data());
     ImGuiContext& g = *GImGui;
 
     struct popup_state
@@ -138,9 +142,11 @@ bool c_widget::set_tooltip(std::string_view tooltip_id, std::string_view tooltip
 
         text_colored(set->c_font.inter_medium[0], gui->get_clr(clr->c_text.text_active), tooltip_id.data());
 
-        widget->separator();
-
-        text_colored(set->c_font.inter_medium[0], gui->get_clr(clr->c_text.text), tooltip_text.data());
+        if (!tooltip_text.empty())
+        {
+            widget->separator();
+            text_colored(set->c_font.inter_medium[0], gui->get_clr(clr->c_text.text), tooltip_text.data());
+        }
 
         gui->end();
     }
@@ -495,7 +501,7 @@ void c_gui::water_mark(std::string name, std::vector<std::string> function, wate
         gui->push_style_var(ImGuiStyleVar_ItemSpacing, SCALE(20, 10));
 
         SetNextWindowPos(current_pos);
-        gui->begin("watermark", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
+        gui->begin("watermark", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
         {
             ImDrawList* draw_list = ImGui::GetWindowDrawList();
 

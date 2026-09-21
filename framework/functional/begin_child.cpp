@@ -104,6 +104,7 @@ void c_gui::end_child()
         ImRect bb(parent_window->DC.CursorPos, parent_window->DC.CursorPos + child_size);
 
         ItemSize(child_size);
+        ItemAdd(bb, child_window->ChildId, NULL, ImGuiItemFlags_NoNav);
 
         if (child_window->Flags & ImGuiWindowFlags_NavFlattened) parent_window->DC.NavLayersActiveMaskNext |= child_window->DC.NavLayersActiveMaskNext;
 
@@ -202,6 +203,7 @@ void end_def_child()
         ImGuiWindow* parent_window = g.CurrentWindow;
         ImRect bb(parent_window->DC.CursorPos, parent_window->DC.CursorPos + child_size);
         ItemSize(child_size);
+        ItemAdd(bb, child_window->ChildId, NULL, ImGuiItemFlags_NoNav);
 
         if (child_window->Flags & ImGuiWindowFlags_NavFlattened) parent_window->DC.NavLayersActiveMaskNext |= child_window->DC.NavLayersActiveMaskNext;
 

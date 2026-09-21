@@ -428,15 +428,6 @@ int MainApp()
 
         gui->render();
 
-        // Dynamically adjust window brightness/alpha based on brightness slider (var->c_glow.power)
-        static int last_power = -1;
-        if (last_power != var->c_glow.power)
-        {
-            last_power = var->c_glow.power;
-            BYTE alpha_byte = (BYTE)ImClamp(70 + (var->c_glow.power * 185 / 100), 70, 255);
-            SetLayeredWindowAttributes(g_hwnd, RGB(0, 0, 0), alpha_byte, LWA_ALPHA);
-        }
-
         const float clear_color[4] = { 0.f, 0.f, 0.f, 0.f };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color);

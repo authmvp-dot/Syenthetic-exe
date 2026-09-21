@@ -30,7 +30,8 @@ bool c_widget::checkbox(std::string_view label, bool* callback)
     ItemSize(clickable_rect, 0.f);
     if (!ItemAdd(clickable_rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
 
     c_checkbox* state = gui->anim_container(&state, id);
     state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
@@ -83,7 +84,8 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
     ItemSize(clickable_rect, 0.f);
     if (!ItemAdd(clickable_rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
 
     c_checkbox* state = gui->anim_container(&state, id);
     state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
@@ -161,7 +163,8 @@ bool c_widget::checkbox_with_color(std::string_view label, bool* callback, float
     if (!ItemAdd(clickable_rect, id)) return false;
     const ImVec2 stored_pos = GetCursorScreenPos();
 
-    bool hovered, held, pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
 
     c_checkbox* state = gui->anim_container(&state, id);
     state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
