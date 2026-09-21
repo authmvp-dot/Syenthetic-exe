@@ -320,7 +320,7 @@ void Overlay::RenderFrame()
         SetWindowDisplayAffinity(hWnd, lastCapture ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
     }
 
-    if (Offsets::Il2Cpp != 0 && !g_espShutDown.load() && g_Globals.Visuals.Enable)
+    if (Offsets::Il2Cpp != 0 && !g_espShutDown.load() && g_Globals.Visuals.Enable && g_Globals.EspConfig.Matrix && g_Globals.EspConfig.InMatch)
     {
         ESP::Players();
     }

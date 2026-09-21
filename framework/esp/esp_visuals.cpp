@@ -347,6 +347,9 @@ void Players()
                 entitiesSnapshot.emplace_back(kv.first, kv.second);
         }
 
+        if (entitiesSnapshot.empty())
+            return;
+
         const float screenW = (float)g_Globals.EspConfig.Width;
         const float screenH = (float)g_Globals.EspConfig.Height;
 

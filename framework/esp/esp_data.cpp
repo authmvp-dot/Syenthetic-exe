@@ -418,32 +418,79 @@ void Data::Work()
             return;
         }
 
+        auto ClearEspState = [&]() {
+            g_Globals.EspConfig.Matrix = false;
+            std::unique_lock<std::shared_mutex> lock(g_Globals.EspConfig.EntitiesMutex);
+            g_Globals.EspConfig.Entities.clear();
+        };
+
         uint32_t localPlayer = 0;
         if (!Mem.Read<uint32_t>(currentMatch + Offsets::LocalPlayer, localPlayer) || !localPlayer)
         {
+            ClearEspState();
             return;
         }
         g_Globals.EspConfig.LocalPlayer = localPlayer;
 
+        // Check if local player is dead (spectating / eliminated)
+        bool localDead = Mem.ReadS<bool>(localPlayer + Offsets::Player_IsDead);
+        if (localDead)
+        {
+            ClearEspState();
+            return;
+        }
+
+        // Also check local player HP pool
+        uint32_t dataPool = Mem.ReadS<uint32_t>(localPlayer + Offsets::Player_Data);
+        if (dataPool)
+        {
+            uint32_t poolObj = Mem.ReadS<uint32_t>(dataPool + 0x8);
+            if (poolObj)
+            {
+                uint32_t healthPool = Mem.ReadS<uint32_t>(poolObj + 0x10);
+                if (healthPool)
+                {
+                    short hp = Mem.ReadS<short>(healthPool + 0x10);
+                    if (hp <= 0)
+                    {
+                        ClearEspState();
+                        return;
+                    }
+                }
+            }
+        }
+
         // Camera Transform
         uint32_t mainTransform = Mem.ReadS<uint32_t>(localPlayer + Offsets::MainCameraTransform);
-        if (!mainTransform)
-            return;
-
         Vector3 mainPos;
-        if (!TransformUtils::GetPosition(mainTransform, mainPos))
+        if (!mainTransform || !TransformUtils::GetPosition(mainTransform, mainPos))
+        {
+            ClearEspState();
             return;
+        }
         g_Globals.EspConfig.MainCamera = mainPos;
 
         // View Matrix
         uint32_t followCamera = Mem.ReadS<uint32_t>(localPlayer + Offsets::FollowCamera);
-        if (!followCamera) return;
+        if (!followCamera)
+        {
+            ClearEspState();
+            return;
+        }
 
         uint32_t camera = Mem.ReadS<uint32_t>(followCamera + Offsets::Camera);
-        if (!camera) return;
+        if (!camera)
+        {
+            ClearEspState();
+            return;
+        }
 
         uint32_t cameraBase = Mem.ReadS<uint32_t>(camera + 0x8);
-        if (!cameraBase) return;
+        if (!cameraBase)
+        {
+            ClearEspState();
+            return;
+        }
 
         Matrix4x4 viewMatrix = Mem.ReadS<Matrix4x4>(cameraBase + Offsets::ViewMatrix);
         g_Globals.EspConfig.Matrix = true;
@@ -460,12 +507,14 @@ void Data::Work()
         uint32_t entitiesCount = 0;
         if (!Mem.Read<uint32_t>(entityDictionary + 0x10, entitiesCount) || entitiesCount < 1 || entitiesCount > 2000)
         {
+            ClearEspState();
             return;
         }
 
         uint32_t entries = 0;
         if (!Mem.Read<uint32_t>(entityDictionary + 0xC, entries) || !entries)
         {
+            ClearEspState();
             return;
         }
 
