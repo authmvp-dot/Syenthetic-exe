@@ -406,9 +406,8 @@ public:
 
     float easing_value;
 
-    float ease_in_elastic(float t) { const float c4 = (2 * PI) / 2;  return (t <= 0.01f) ? 0.0f : (t >= 0.60f) ? 1.0f : pow(2, -10 * t) * sin((t * 10 - 0.75) * c4) + 1; }
-
-    float ease_in_back(float t) { const float c1 = 1.70158; const float c3 = c1 + 1; return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2); }
+    float ease_in_elastic(float t) { const float c4 = (2.0f * (float)PI) / 2.0f;  return (t <= 0.01f) ? 0.0f : (t >= 0.60f) ? 1.0f : powf(2.0f, -10.0f * t) * sinf((t * 10.0f - 0.75f) * c4) + 1.0f; }
+    float ease_in_back(float t) { const float c1 = 1.70158f; const float c3 = c1 + 1.0f; return 1.0f + c3 * powf(t - 1.0f, 3.0f) + c1 * powf(t - 1.0f, 2.0f); }
 
     struct easing_state {
         float animTime = 0.0f;
