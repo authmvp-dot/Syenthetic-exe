@@ -223,14 +223,18 @@ void UpdateHudWindow(float framerate)
         g.DrawPath(&baseBorderPen, &path);
 
         // 4. Glowing Neon Accents:
-        // Left chamfers & left edge: Magenta / Neon Pink
-        Gdiplus::Pen pinkPen(Gdiplus::Color(255, 235, 45, 150), 1.6f);
+        BYTE accR = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.x * 255), 0, 255);
+        BYTE accG = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.y * 255), 0, 255);
+        BYTE accB = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.z * 255), 0, 255);
+
+        // Left chamfers & left edge
+        Gdiplus::Pen pinkPen(Gdiplus::Color(255, ImMin(255, (int)accR + 30), accG, ImMin(255, (int)accB + 40)), 1.6f);
         g.DrawLine(&pinkPen, 0.0f, c, c, 0.0f);
         g.DrawLine(&pinkPen, 0.0f, h - c, c, h);
         g.DrawLine(&pinkPen, 0.0f, c, 0.0f, h - c);
 
-        // Right chamfers & right edge: Electric Blue / Purple
-        Gdiplus::Pen bluePen(Gdiplus::Color(255, 56, 175, 255), 1.6f);
+        // Right chamfers & right edge: Accent Color
+        Gdiplus::Pen bluePen(Gdiplus::Color(255, accR, accG, accB), 1.6f);
         g.DrawLine(&bluePen, w - c, h, w, h - c);
         g.DrawLine(&bluePen, w - c, 0.0f, w, c);
         g.DrawLine(&bluePen, w, c, w, h - c);
@@ -239,9 +243,6 @@ void UpdateHudWindow(float framerate)
         Gdiplus::Font fontBold(L"Segoe UI", 8.5f, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
 
         Gdiplus::SolidBrush whiteBrush(Gdiplus::Color(255, 240, 240, 245));
-        BYTE accR = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.x * 255), 0, 255);
-        BYTE accG = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.y * 255), 0, 255);
-        BYTE accB = (BYTE)ImClamp((int)(clr->c_other_clr.accent_clr.z * 255), 0, 255);
         Gdiplus::SolidBrush purpleBrush(Gdiplus::Color(255, accR, accG, accB));
         Gdiplus::SolidBrush iconBrush(Gdiplus::Color(255, accR, accG, accB));
         Gdiplus::Pen iconPen(Gdiplus::Color(255, accR, accG, accB), 1.4f);

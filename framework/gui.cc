@@ -1434,7 +1434,7 @@ void c_gui::render()
 							widget->button("Reset Color", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
 							if (ImGui::IsItemClicked())
 							{
-								clr->c_other_clr.accent_clr = ImColor(142, 132, 255, 255);
+								clr->c_other_clr.accent_clr = ImColor(0xB7, 0x00, 0x3B, 0xFF);
 							}
 
 							gui->sameline();

@@ -81,7 +81,7 @@ public:
 		ImVec4 col_bg_alpha_0 = ImColor(125, 125, 125, 255);
 		ImVec4 col_bg_alpha_1 = ImColor(185, 185, 185, 255);
 
-		ImVec4 accent_clr = ImColor(142, 132, 255, 255);
+		ImVec4 accent_clr = ImColor(0xB7, 0x00, 0x3B, 0xFF); // #B7003BFF
 
 		ImVec4 black_clr = ImColor(0, 0, 0, 255);
 		ImVec4 white_clr = ImColor(255, 255, 255, 255);
@@ -107,10 +107,10 @@ public:
 
 	struct
 	{
-		ImVec4 dropdown_selection_layout = ImColor(31, 31, 41, 255);
-		ImVec4 popup_icon = ImColor(45, 43, 62, 255);
+		ImVec4 dropdown_selection_layout = ImColor(38, 22, 28, 255);
+		ImVec4 popup_icon = ImColor(56, 24, 34, 255);
 
-		ImVec4 checkbox_active = ImColor(37, 36, 53, 255);
+		ImVec4 checkbox_active = ImColor(48, 20, 28, 255);
 		ImVec4 separator = ImColor(19, 18, 26, 255);
 
 		ImVec4 layout = ImColor(26, 26, 36, 255);
