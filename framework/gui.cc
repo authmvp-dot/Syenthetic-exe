@@ -702,20 +702,89 @@ void c_gui::render()
 			if (u_name.length() > 9) u_name = u_name.substr(0, 8) + "..";
 
 			std::string days_text = "Days: N/A";
-			if (!SyzoraAuth::g_Auth.user_data.expiry.empty())
+			const std::string& raw_exp = SyzoraAuth::g_Auth.user_data.expiry;
+			if (!raw_exp.empty())
 			{
-				try {
-					long long exp_val = std::stoll(SyzoraAuth::g_Auth.user_data.expiry);
-					time_t now = time(nullptr);
-					if (exp_val > 1500000000LL) {
-						long long diff_sec = exp_val - (long long)now;
-						long long d = diff_sec > 0 ? (diff_sec / 86400LL) : 0;
-						days_text = "Days: " + std::to_string(d);
-					} else if (exp_val > 0) {
-						days_text = "Days: " + std::to_string(exp_val);
+				int y = 0, m = 0, d = 0, hh = 0, mm = 0, ss = 0;
+				bool is_date = false;
+
+				if (sscanf_s(raw_exp.c_str(), "%d-%d-%d %d:%d:%d", &y, &m, &d, &hh, &mm, &ss) >= 3 ||
+				    sscanf_s(raw_exp.c_str(), "%d/%d/%d %d:%d:%d", &y, &m, &d, &hh, &mm, &ss) >= 3 ||
+				    sscanf_s(raw_exp.c_str(), "%d-%d-%d", &y, &m, &d) >= 3 ||
+				    sscanf_s(raw_exp.c_str(), "%d/%d/%d", &y, &m, &d) >= 3)
+				{
+					is_date = true;
+					if (d > 1900 && y <= 31)
+					{
+						std::swap(y, d);
 					}
-				} catch (...) {
-					days_text = "Days: " + SyzoraAuth::g_Auth.user_data.expiry;
+				}
+
+				if (is_date)
+				{
+					if (y >= 2090)
+					{
+						days_text = "Days: Lifetime";
+					}
+					else
+					{
+						struct tm t = {};
+						t.tm_year = y - 1900;
+						t.tm_mon = m - 1;
+						t.tm_mday = d;
+						t.tm_hour = hh;
+						t.tm_min = mm;
+						t.tm_sec = ss;
+						t.tm_isdst = -1;
+						time_t exp_time = mktime(&t);
+						time_t now = time(nullptr);
+						double diff_sec = difftime(exp_time, now);
+						if (diff_sec <= 0)
+						{
+							days_text = "Days: Expired";
+						}
+						else
+						{
+							long long days = (long long)ceil(diff_sec / 86400.0);
+							days_text = "Days: " + std::to_string(days);
+						}
+					}
+				}
+				else
+				{
+					try {
+						long long exp_val = std::stoll(raw_exp);
+						time_t now = time(nullptr);
+						if (exp_val > 1500000000LL && exp_val < 3000000000LL) {
+							long long diff_sec = exp_val - (long long)now;
+							if (diff_sec <= 0) {
+								days_text = "Days: Expired";
+							} else {
+								long long days = (diff_sec + 86399LL) / 86400LL;
+								days_text = "Days: " + std::to_string(days);
+							}
+						}
+						else if (exp_val >= 1500000000000LL) {
+							long long diff_sec = (exp_val / 1000LL) - (long long)now;
+							if (diff_sec <= 0) {
+								days_text = "Days: Expired";
+							} else {
+								long long days = (diff_sec + 86399LL) / 86400LL;
+								days_text = "Days: " + std::to_string(days);
+							}
+						}
+						else if (exp_val > 0 && exp_val < 3650) {
+							days_text = "Days: " + std::to_string(exp_val);
+						}
+						else if (exp_val >= 3650) {
+							days_text = "Days: Lifetime";
+						}
+					} catch (...) {
+						if (raw_exp.find("life") != std::string::npos || raw_exp.find("Life") != std::string::npos)
+							days_text = "Days: Lifetime";
+						else
+							days_text = "Days: " + raw_exp;
+					}
 				}
 			}
 
