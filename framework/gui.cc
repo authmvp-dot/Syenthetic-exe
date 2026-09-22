@@ -2,6 +2,8 @@
 #include "shader/blur.hpp"
 #include "esp/esp_globals.h"
 #include "esp/esp_data.h"
+#include "auth/auth_gui.h"
+#include "auth/syzora_auth.hpp"
 
 namespace {
     void DrawEspPreview(float child_width)
@@ -360,7 +362,7 @@ namespace {
 
         // Bottom quick selector chips for health bar position
         gui->set_cursor_pos_y(gui->get_cursor_pos_y() + SCALE(10.f));
-        ImGui::TextColored(gui->get_clr(clr->c_text.text), "Healthbar Side:");
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(gui->get_clr(clr->c_text.text)), "Healthbar Side:");
         ImGui::SameLine();
 
         static const char* sides[] = { "None", "Left", "Right", "Bottom", "Text" };
@@ -392,6 +394,20 @@ void c_gui::render()
 		g_Globals.EspConfig.AutoRefresh = var->c_settings.connect_lib || var->c_esp.auto_refresh;
 
 		notify->setup_notify();
+
+		// Syzora Auth Gate: Only render cheat menu after successful login
+		static bool s_auth_transition_done = false;
+		if (!AuthGui::IsAuthenticated())
+		{
+			set->c_window.window_size = ImVec2(410, 500);
+			AuthGui::Render();
+			return;
+		}
+		else if (!s_auth_transition_done)
+		{
+			s_auth_transition_done = true;
+			set->c_window.window_size = ImVec2(860, 630);
+		}
 
 		ImVec2 menu_size = SCALE(set->c_window.window_size);
 		gui->set_next_window_pos(ImVec2(0, 0));
@@ -655,6 +671,16 @@ void c_gui::render()
 				ImVec4 icon_col = is_active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImLerp(inactive_icon, ImVec4(1.f, 1.f, 1.f, 1.f), st->anim);
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max - ImVec2(0, SCALE(2.f)), gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.48f });
 			}
+
+			// 4. Authenticated User Profile Card at bottom of sidebar
+			float profile_y = pos.y + size.y - SCALE(65.f);
+			ImRect prof_rect(ImVec2(tab_x, profile_y), ImVec2(tab_x + tab_w, profile_y + SCALE(50.f)));
+			draw->add_rect_filled(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(18, 18, 26, 220), SCALE(6.f));
+			draw->add_rect(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(32, 30, 44, 255), SCALE(6.f));
+			std::string u_name = SyzoraAuth::g_Auth.user_data.username.empty() ? "User" : SyzoraAuth::g_Auth.user_data.username;
+			if (u_name.length() > 8) u_name = u_name.substr(0, 7) + "..";
+			draw->render_text(set->c_font.inter_medium[0], draw_list, prof_rect.Min + ImVec2(SCALE(4.f), SCALE(6.f)), prof_rect.Max, IM_COL32(240, 240, 255, 255), u_name.c_str(), 0, 0, { 0.5f, 0.0f });
+			draw->render_text(set->c_font.inter_medium[0], draw_list, prof_rect.Min + ImVec2(SCALE(4.f), SCALE(26.f)), prof_rect.Max, IM_COL32(46, 213, 115, 255), "[ACTIVE]", 0, 0, { 0.5f, 0.0f });
 
 			gui->set_cursor_pos(SCALE(115, 75));
 

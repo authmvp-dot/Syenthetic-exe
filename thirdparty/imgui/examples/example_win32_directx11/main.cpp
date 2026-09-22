@@ -10,6 +10,7 @@
 #include "../../framework/esp/name_gun.h"
 #include "../../framework/esp/overlay.hpp"
 #include "../../framework/esp/icon_font.h"
+#include "../../framework/auth/auth_gui.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -648,8 +649,11 @@ int MainApp()
             var->c_dpi.dpi_changed = false;
         }
 
-        // Render transparent ESP overlay directly over game emulator
-        FWork::Overlay::RenderFrame();
+        // Render transparent ESP overlay directly over game emulator only after login
+        if (AuthGui::IsAuthenticated())
+        {
+            FWork::Overlay::RenderFrame();
+        }
 
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
