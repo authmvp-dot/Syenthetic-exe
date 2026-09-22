@@ -998,7 +998,8 @@ void c_gui::render()
 						gui->end_child();
 					}
 					gui->end_group();
-					ImGui::EndChild();
+				}
+				ImGui::EndChild();
 
 					gui->sameline();
 
