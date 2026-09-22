@@ -636,12 +636,11 @@ int MainApp()
 
             set->c_font.name = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 18.f * var->c_dpi.dpi, &cfg, io.Fonts->GetGlyphRangesCyrillic());
 
-            ImFontConfig weaponFontCfg;
+            weaponFontCfg = ImFontConfig();
             weaponFontCfg.MergeMode = false;
             weaponFontCfg.OversampleH = 1;
             weaponFontCfg.OversampleV = 1;
             weaponFontCfg.PixelSnapH = true;
-            static const ImWchar weaponRanges[] = { 0xe000, 0xe204, 0x00 };
             set->c_font.icon_weapon = io.Fonts->AddFontFromMemoryCompressedTTF(icon_compressed_data, icon_compressed_size, 40.f * var->c_dpi.dpi, &weaponFontCfg, weaponRanges);
 
             io.Fonts->Build();

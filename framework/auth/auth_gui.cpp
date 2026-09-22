@@ -1,6 +1,5 @@
 #include "auth_gui.h"
 #include "syzora_auth.hpp"
-#include "../settings/settings.h"
 #include "../settings/functions.h"
 
 #include <shellapi.h>
