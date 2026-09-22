@@ -63,6 +63,7 @@ public:
 		ImFont* icon[7];
 		ImFont* inter_medium[2];
 		ImFont* name;
+		ImFont* icon_weapon = nullptr;
 
 	} c_font;
 

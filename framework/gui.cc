@@ -3,6 +3,386 @@
 #include "esp/esp_globals.h"
 #include "esp/esp_data.h"
 
+namespace {
+    void DrawEspPreview(float child_width)
+    {
+        const float canvas_w = child_width;
+        const float canvas_h = SCALE(430.f);
+        const ImVec2 canvas_sz(canvas_w, canvas_h);
+
+        ImGui::InvisibleButton("##esp_preview_canvas", canvas_sz);
+        const bool is_hovered = ImGui::IsItemHovered();
+        const ImVec2 p0 = ImGui::GetItemRectMin();
+        const ImVec2 p1 = ImGui::GetItemRectMax();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        dl->PushClipRect(p0, p1, true);
+
+        // Viewport background gradient
+        dl->AddRectFilledMultiColor(p0, p1, IM_COL32(13, 14, 21, 255), IM_COL32(13, 14, 21, 255), IM_COL32(20, 22, 33, 255), IM_COL32(20, 22, 33, 255));
+        dl->AddRect(p0, p1, is_hovered ? gui->get_clr(clr->c_other_clr.accent_clr, 0.5f) : IM_COL32(38, 42, 58, 200), SCALE(6.f), 0, 1.2f);
+
+        // Faint tactical radar grid
+        for (float gx = p0.x + SCALE(32.f); gx < p1.x; gx += SCALE(32.f))
+            dl->AddLine(ImVec2(gx, p0.y), ImVec2(gx, p1.y), IM_COL32(255, 255, 255, 7), 1.0f);
+        for (float gy = p0.y + SCALE(32.f); gy < p1.y; gy += SCALE(32.f))
+            dl->AddLine(ImVec2(p0.x, gy), ImVec2(p1.x, gy), IM_COL32(255, 255, 255, 7), 1.0f);
+
+        // Concentric radar rings
+        const ImVec2 center(p0.x + canvas_w * 0.5f, p0.y + canvas_h * 0.50f);
+        dl->AddCircle(center, SCALE(85.f), IM_COL32(255, 255, 255, 12), 48, 1.0f);
+        dl->AddCircle(center, SCALE(130.f), IM_COL32(255, 255, 255, 7), 48, 1.0f);
+
+        // Corner HUD brackets
+        const float blen = SCALE(12.f);
+        const float bpad = SCALE(8.f);
+        const ImU32 bcol = IM_COL32(100, 120, 180, 80);
+        dl->AddLine(p0 + ImVec2(bpad, bpad), p0 + ImVec2(bpad + blen, bpad), bcol, 1.5f);
+        dl->AddLine(p0 + ImVec2(bpad, bpad), p0 + ImVec2(bpad, bpad + blen), bcol, 1.5f);
+        dl->AddLine(ImVec2(p1.x - bpad, p0.y + bpad), ImVec2(p1.x - bpad - blen, p0.y + bpad), bcol, 1.5f);
+        dl->AddLine(ImVec2(p1.x - bpad, p0.y + bpad), ImVec2(p1.x - bpad, p0.y + bpad + blen), bcol, 1.5f);
+        dl->AddLine(ImVec2(p0.x + bpad, p1.y - bpad), ImVec2(p0.x + bpad + blen, p1.y - bpad), bcol, 1.5f);
+        dl->AddLine(ImVec2(p0.x + bpad, p1.y - bpad), ImVec2(p0.x + bpad, p1.y - bpad - blen), bcol, 1.5f);
+        dl->AddLine(ImVec2(p1.x - bpad, p1.y - bpad), ImVec2(p1.x - bpad - blen, p1.y - bpad), bcol, 1.5f);
+        dl->AddLine(ImVec2(p1.x - bpad, p1.y - bpad), ImVec2(p1.x - bpad, p1.y - bpad - blen), bcol, 1.5f);
+
+        // Header watermark: pulsing Live indicator & enemy count
+        const float pulse = 0.6f + 0.4f * sinf((float)ImGui::GetTime() * 4.0f);
+        dl->AddCircleFilled(p0 + ImVec2(SCALE(16.f), SCALE(18.f)), SCALE(3.5f), IM_COL32(46, 213, 115, (int)(255 * pulse)));
+        dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.95f, p0 + ImVec2(SCALE(26.f), SCALE(11.f)), IM_COL32(200, 205, 220, 220), "PREVIEW // TARGET SIMULATION");
+
+        if (g_Globals.Visuals.ShowNearEnemyCount) {
+            const char* enc_text = "ENEMIES: 1";
+            ImVec2 enc_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize * 0.9f, FLT_MAX, -1, enc_text);
+            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, ImVec2(p1.x - enc_sz.x - SCALE(14.f), p0.y + SCALE(11.f)), IM_COL32(255, 95, 95, 240), enc_text);
+        }
+
+        // Keypoints for anatomical mannequin
+        const float cx = center.x;
+        const float cy = center.y + SCALE(12.f);
+
+        const float head_r = SCALE(12.f);
+        const ImVec2 head_pt(cx, cy - SCALE(95.f));
+        const ImVec2 neck_pt(cx, head_pt.y + SCALE(17.f));
+        const ImVec2 chest_pt(cx, neck_pt.y + SCALE(26.f));
+        const ImVec2 pelvis_pt(cx, chest_pt.y + SCALE(38.f));
+
+        const ImVec2 left_shoulder(cx - SCALE(25.f), neck_pt.y + SCALE(6.f));
+        const ImVec2 right_shoulder(cx + SCALE(25.f), neck_pt.y + SCALE(6.f));
+        const ImVec2 left_elbow(cx - SCALE(34.f), chest_pt.y + SCALE(6.f));
+        const ImVec2 right_elbow(cx + SCALE(34.f), chest_pt.y + SCALE(6.f));
+        const ImVec2 left_hand(cx - SCALE(22.f), pelvis_pt.y - SCALE(6.f));
+        const ImVec2 right_hand(cx + SCALE(22.f), pelvis_pt.y - SCALE(8.f));
+
+        const ImVec2 left_knee(cx - SCALE(16.f), pelvis_pt.y + SCALE(45.f));
+        const ImVec2 right_knee(cx + SCALE(16.f), pelvis_pt.y + SCALE(45.f));
+        const ImVec2 left_foot(cx - SCALE(20.f), pelvis_pt.y + SCALE(95.f));
+        const ImVec2 right_foot(cx + SCALE(20.f), pelvis_pt.y + SCALE(95.f));
+
+        const ImVec2 box_min(cx - SCALE(46.f), head_pt.y - head_r - SCALE(8.f));
+        const ImVec2 box_max(cx + SCALE(46.f), left_foot.y + SCALE(7.f));
+
+        // 1. Mannequin Silhouette
+        dl->AddCircleFilled(head_pt, head_r, IM_COL32(32, 36, 52, 230));
+        dl->AddCircle(head_pt, head_r, IM_COL32(60, 70, 95, 240), 32, 1.2f);
+        dl->AddLine(head_pt - ImVec2(head_r * 0.7f, 0), head_pt + ImVec2(head_r * 0.7f, 0), IM_COL32(100, 160, 230, 200), 2.0f);
+
+        dl->AddLine(head_pt + ImVec2(0, head_r * 0.8f), neck_pt, IM_COL32(40, 46, 65, 230), SCALE(5.0f));
+
+        ImVec2 chest_poly[4] = {
+            left_shoulder,
+            right_shoulder,
+            ImVec2(cx + SCALE(18.f), pelvis_pt.y - SCALE(10.f)),
+            ImVec2(cx - SCALE(18.f), pelvis_pt.y - SCALE(10.f))
+        };
+        dl->AddConvexPolyFilled(chest_poly, 4, IM_COL32(32, 36, 52, 230));
+        dl->AddPolyline(chest_poly, 4, IM_COL32(55, 65, 90, 240), ImDrawFlags_Closed, 1.2f);
+
+        ImVec2 pelvis_poly[4] = {
+            ImVec2(cx - SCALE(18.f), pelvis_pt.y - SCALE(10.f)),
+            ImVec2(cx + SCALE(18.f), pelvis_pt.y - SCALE(10.f)),
+            ImVec2(cx + SCALE(20.f), pelvis_pt.y + SCALE(12.f)),
+            ImVec2(cx - SCALE(20.f), pelvis_pt.y + SCALE(12.f))
+        };
+        dl->AddConvexPolyFilled(pelvis_poly, 4, IM_COL32(28, 32, 46, 230));
+        dl->AddPolyline(pelvis_poly, 4, IM_COL32(50, 60, 85, 240), ImDrawFlags_Closed, 1.2f);
+
+        dl->AddLine(left_shoulder, left_elbow, IM_COL32(35, 40, 58, 220), SCALE(6.0f));
+        dl->AddLine(left_elbow, left_hand, IM_COL32(35, 40, 58, 220), SCALE(5.0f));
+        dl->AddLine(right_shoulder, right_elbow, IM_COL32(35, 40, 58, 220), SCALE(6.0f));
+        dl->AddLine(right_elbow, right_hand, IM_COL32(35, 40, 58, 220), SCALE(5.0f));
+
+        dl->AddLine(ImVec2(cx - SCALE(10.f), pelvis_pt.y + SCALE(10.f)), left_knee, IM_COL32(32, 36, 52, 220), SCALE(7.0f));
+        dl->AddLine(left_knee, left_foot, IM_COL32(32, 36, 52, 220), SCALE(6.0f));
+        dl->AddLine(ImVec2(cx + SCALE(10.f), pelvis_pt.y + SCALE(10.f)), right_knee, IM_COL32(32, 36, 52, 220), SCALE(7.0f));
+        dl->AddLine(right_knee, right_foot, IM_COL32(32, 36, 52, 220), SCALE(6.0f));
+
+        dl->AddLine(left_foot - ImVec2(SCALE(5.f), 0), left_foot + ImVec2(SCALE(7.f), 0), IM_COL32(50, 58, 80, 240), SCALE(4.0f));
+        dl->AddLine(right_foot - ImVec2(SCALE(3.f), 0), right_foot + ImVec2(SCALE(9.f), 0), IM_COL32(50, 58, 80, 240), SCALE(4.0f));
+
+        // Weapon silhouette
+        dl->AddLine(left_hand - ImVec2(SCALE(10.f), -SCALE(4.f)), right_hand + ImVec2(SCALE(22.f), -SCALE(14.f)), IM_COL32(55, 62, 85, 230), SCALE(4.5f));
+        dl->AddLine(right_hand + ImVec2(SCALE(10.f), -SCALE(8.f)), right_hand + ImVec2(SCALE(32.f), -SCALE(20.f)), IM_COL32(70, 80, 105, 230), SCALE(2.0f));
+
+        // 2. ESP Skeleton
+        if (g_Globals.Visuals.Skeleton)
+        {
+            ImU32 skel_col = ImGui::ColorConvertFloat4ToU32(ImVec4(g_Globals.Visuals.SkeletonColor[0], g_Globals.Visuals.SkeletonColor[1], g_Globals.Visuals.SkeletonColor[2], g_Globals.Visuals.SkeletonColor[3]));
+            const float bone_thick = SCALE(1.8f);
+
+            auto draw_bone = [&](const ImVec2& a, const ImVec2& b) {
+                dl->AddLine(a, b, IM_COL32(0, 0, 0, 200), bone_thick + 1.2f);
+                dl->AddLine(a, b, skel_col, bone_thick);
+            };
+
+            draw_bone(head_pt, neck_pt);
+            draw_bone(neck_pt, chest_pt);
+            draw_bone(chest_pt, pelvis_pt);
+
+            draw_bone(neck_pt, left_shoulder);
+            draw_bone(left_shoulder, left_elbow);
+            draw_bone(left_elbow, left_hand);
+
+            draw_bone(neck_pt, right_shoulder);
+            draw_bone(right_shoulder, right_elbow);
+            draw_bone(right_elbow, right_hand);
+
+            draw_bone(pelvis_pt, left_knee);
+            draw_bone(left_knee, left_foot);
+
+            draw_bone(pelvis_pt, right_knee);
+            draw_bone(right_knee, right_foot);
+
+            const ImVec2 joints[] = { head_pt, neck_pt, chest_pt, pelvis_pt, left_shoulder, right_shoulder, left_elbow, right_elbow, left_hand, right_hand, left_knee, right_knee, left_foot, right_foot };
+            for (const auto& j : joints) {
+                dl->AddCircleFilled(j, SCALE(2.8f), skel_col);
+                dl->AddCircle(j, SCALE(2.8f), IM_COL32(0, 0, 0, 200), 0, 1.0f);
+            }
+        }
+
+        // 3. ESP Box
+        if (g_Globals.Visuals.Box)
+        {
+            ImU32 box_col = ImGui::ColorConvertFloat4ToU32(ImVec4(g_Globals.Visuals.BoxColor[0], g_Globals.Visuals.BoxColor[1], g_Globals.Visuals.BoxColor[2], g_Globals.Visuals.BoxColor[3]));
+            dl->AddRectFilled(box_min, box_max, (box_col & 0x00FFFFFF) | (18 << 24));
+
+            if (g_Globals.Visuals.players_box == 1) // Full Box
+            {
+                dl->AddRect(box_min - ImVec2(1, 1), box_max + ImVec2(1, 1), IM_COL32(0, 0, 0, 200), 0, 0, 1.0f);
+                dl->AddRect(box_min + ImVec2(1, 1), box_max - ImVec2(1, 1), IM_COL32(0, 0, 0, 200), 0, 0, 1.0f);
+                dl->AddRect(box_min, box_max, box_col, 0, 0, 1.5f);
+            }
+            else // Corner Box (players_box == 2)
+            {
+                const float cl = SCALE(14.f);
+                auto draw_corner = [&](const ImVec2& corner, const ImVec2& d1, const ImVec2& d2) {
+                    dl->AddLine(corner - ImVec2(1, 1), corner + d1 - ImVec2(1, 1), IM_COL32(0, 0, 0, 200), 2.5f);
+                    dl->AddLine(corner - ImVec2(1, 1), corner + d2 - ImVec2(1, 1), IM_COL32(0, 0, 0, 200), 2.5f);
+                    dl->AddLine(corner, corner + d1, box_col, 1.5f);
+                    dl->AddLine(corner, corner + d2, box_col, 1.5f);
+                };
+
+                draw_corner(box_min, ImVec2(cl, 0), ImVec2(0, cl));
+                draw_corner(ImVec2(box_max.x, box_min.y), ImVec2(-cl, 0), ImVec2(0, cl));
+                draw_corner(ImVec2(box_min.x, box_max.y), ImVec2(cl, 0), ImVec2(0, -cl));
+                draw_corner(box_max, ImVec2(-cl, 0), ImVec2(0, -cl));
+            }
+        }
+
+        // 4. ESP Snapline
+        if (g_Globals.Visuals.Lines)
+        {
+            ImVec2 line_start;
+            if (g_Globals.Visuals.EspLines == 1) // Top Screen
+                line_start = ImVec2(p0.x + canvas_w * 0.5f, p0.y + SCALE(6.f));
+            else // Bottom Screen
+                line_start = ImVec2(p0.x + canvas_w * 0.5f, p1.y - SCALE(6.f));
+
+            ImVec2 line_end = ImVec2(cx, box_min.y);
+
+            ImU32 line_col = 0;
+            if (g_Globals.Visuals.RainbowLines) {
+                float t = (float)ImGui::GetTime() * 1.5f;
+                ImVec4 rb = ImColor::HSV(fmodf(t, 1.0f), 0.85f, 1.0f);
+                line_col = ImGui::ColorConvertFloat4ToU32(rb);
+            } else {
+                line_col = ImGui::ColorConvertFloat4ToU32(ImVec4(g_Globals.Visuals.LinesColor[0], g_Globals.Visuals.LinesColor[1], g_Globals.Visuals.LinesColor[2], g_Globals.Visuals.LinesColor[3]));
+            }
+
+            if (g_Globals.Visuals.GlowLines) {
+                dl->AddLine(line_start, line_end, (line_col & 0x00FFFFFF) | (35 << 24), SCALE(5.5f));
+                dl->AddLine(line_start, line_end, (line_col & 0x00FFFFFF) | (70 << 24), SCALE(3.5f));
+            }
+            dl->AddLine(line_start, line_end, line_col, SCALE(1.5f));
+            dl->AddCircleFilled(line_start, SCALE(3.0f), line_col);
+        }
+
+        // 5. ESP Health Bar
+        if (g_Globals.Visuals.HealthBar)
+        {
+            const float bar_thick = SCALE(4.0f);
+            const float bar_gap = SCALE(4.5f);
+
+            if (g_Globals.Visuals.players_healthbar == 1) // Left
+            {
+                ImVec2 bg_min(box_min.x - bar_gap - bar_thick, box_min.y);
+                ImVec2 bg_max(box_min.x - bar_gap, box_max.y);
+                dl->AddRectFilled(bg_min, bg_max, IM_COL32(20, 20, 25, 230));
+                dl->AddRect(bg_min - ImVec2(1, 1), bg_max + ImVec2(1, 1), IM_COL32(0, 0, 0, 220));
+                dl->AddRectFilledMultiColor(bg_min, bg_max, IM_COL32(46, 213, 115, 255), IM_COL32(46, 213, 115, 255), IM_COL32(32, 180, 90, 255), IM_COL32(32, 180, 90, 255));
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.82f, ImVec2(bg_min.x - SCALE(18.f), bg_min.y - SCALE(2.f)), IM_COL32(46, 213, 115, 240), "100");
+            }
+            else if (g_Globals.Visuals.players_healthbar == 2) // Right
+            {
+                ImVec2 bg_min(box_max.x + bar_gap, box_min.y);
+                ImVec2 bg_max(box_max.x + bar_gap + bar_thick, box_max.y);
+                dl->AddRectFilled(bg_min, bg_max, IM_COL32(20, 20, 25, 230));
+                dl->AddRect(bg_min - ImVec2(1, 1), bg_max + ImVec2(1, 1), IM_COL32(0, 0, 0, 220));
+                dl->AddRectFilledMultiColor(bg_min, bg_max, IM_COL32(46, 213, 115, 255), IM_COL32(46, 213, 115, 255), IM_COL32(32, 180, 90, 255), IM_COL32(32, 180, 90, 255));
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.82f, ImVec2(bg_max.x + SCALE(3.f), bg_min.y - SCALE(2.f)), IM_COL32(46, 213, 115, 240), "100");
+            }
+            else if (g_Globals.Visuals.players_healthbar == 3) // Bottom
+            {
+                ImVec2 bg_min(box_min.x, box_max.y + bar_gap);
+                ImVec2 bg_max(box_max.x, box_max.y + bar_gap + bar_thick);
+                dl->AddRectFilled(bg_min, bg_max, IM_COL32(20, 20, 25, 230));
+                dl->AddRect(bg_min - ImVec2(1, 1), bg_max + ImVec2(1, 1), IM_COL32(0, 0, 0, 220));
+                dl->AddRectFilledMultiColor(bg_min, bg_max, IM_COL32(46, 213, 115, 255), IM_COL32(32, 180, 90, 255), IM_COL32(32, 180, 90, 255), IM_COL32(46, 213, 115, 255));
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.82f, ImVec2(bg_max.x + SCALE(4.f), bg_min.y - SCALE(3.f)), IM_COL32(46, 213, 115, 240), "100");
+            }
+            else if (g_Globals.Visuals.players_healthbar == 4) // Text / Top
+            {
+                const char* hp_txt = "HP: 100";
+                ImVec2 txt_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize * 0.9f, FLT_MAX, -1, hp_txt);
+                ImVec2 hp_pos(cx - txt_sz.x * 0.5f, box_min.y - txt_sz.y - (g_Globals.Visuals.Name ? SCALE(18.f) : SCALE(5.f)));
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, hp_pos + ImVec2(1, 1), IM_COL32(0, 0, 0, 220), hp_txt);
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, hp_pos, IM_COL32(46, 213, 115, 255), hp_txt);
+            }
+        }
+
+        // Interactive Click to Reposition Health Bar
+        if (is_hovered && g_Globals.Visuals.HealthBar && ImGui::IsMouseClicked(0))
+        {
+            ImVec2 mouse = ImGui::GetIO().MousePos;
+            if (mouse.x >= p0.x && mouse.x <= p1.x && mouse.y >= p0.y && mouse.y <= p1.y)
+            {
+                if (mouse.y < box_min.y)
+                    g_Globals.Visuals.players_healthbar = 4; // Top/Text
+                else if (mouse.y > box_max.y)
+                    g_Globals.Visuals.players_healthbar = 3; // Bottom
+                else if (mouse.x < cx)
+                    g_Globals.Visuals.players_healthbar = 1; // Left
+                else
+                    g_Globals.Visuals.players_healthbar = 2; // Right
+            }
+        }
+        if (is_hovered && g_Globals.Visuals.HealthBar) {
+            ImGui::SetTooltip("Click sides around model to position Health Bar (Left / Right / Bottom / Top)");
+        }
+
+        // 6. Name & Level
+        if (g_Globals.Visuals.Name || g_Globals.Visuals.Level)
+        {
+            std::string full_title = "";
+            if (g_Globals.Visuals.Level)
+                full_title += "[Lv.75] ";
+            if (g_Globals.Visuals.Name)
+                full_title += "Player_01";
+
+            if (!full_title.empty())
+            {
+                ImVec2 name_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize, FLT_MAX, -1, full_title.c_str());
+                float name_y = box_min.y - name_sz.y - SCALE(4.f);
+                if (g_Globals.Visuals.HealthBar && g_Globals.Visuals.players_healthbar == 4)
+                    name_y -= SCALE(14.f);
+
+                ImVec2 name_pos(cx - name_sz.x * 0.5f, name_y);
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize, name_pos + ImVec2(1, 1), IM_COL32(0, 0, 0, 220), full_title.c_str());
+                dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize, name_pos, IM_COL32(240, 242, 250, 255), full_title.c_str());
+            }
+        }
+
+        // 7. Distance & Weapon
+        float bottom_cur_y = box_max.y + SCALE(6.f);
+        if (g_Globals.Visuals.HealthBar && g_Globals.Visuals.players_healthbar == 3)
+            bottom_cur_y += SCALE(12.f);
+
+        if (g_Globals.Visuals.Distance)
+        {
+            char dist_str[32];
+            snprintf(dist_str, sizeof(dist_str), "[%d m]", g_Globals.Visuals.DistanceEsp > 0 ? (g_Globals.Visuals.DistanceEsp / 2) : 35);
+            ImVec2 d_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize * 0.9f, FLT_MAX, -1, dist_str);
+            ImVec2 d_pos(cx - d_sz.x * 0.5f, bottom_cur_y);
+            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, d_pos + ImVec2(1, 1), IM_COL32(0, 0, 0, 200), dist_str);
+            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, d_pos, IM_COL32(165, 195, 245, 240), dist_str);
+            bottom_cur_y += d_sz.y + SCALE(2.f);
+        }
+
+        if (g_Globals.Visuals.ESPWeaponIcon)
+        {
+            const char* ak_icon = "\ue074";
+            ImFont* icFont = set->c_font.icon_weapon;
+            if (icFont)
+            {
+                float icScale = (g_Globals.Visuals.IconScale > 0.1f) ? g_Globals.Visuals.IconScale : 0.92f;
+                float icSize = icFont->FontSize * icScale;
+                if (icSize < 12.0f) icSize = 16.0f;
+                ImVec2 icSz = icFont->CalcTextSizeA(icSize, FLT_MAX, 0.0f, ak_icon);
+                ImVec2 icPos(cx - icSz.x * 0.5f, bottom_cur_y);
+                dl->AddText(icFont, icSize, icPos + ImVec2(1, 1), IM_COL32(0, 0, 0, 200), ak_icon);
+                dl->AddText(icFont, icSize, icPos, IM_COL32(255, 255, 255, 240), ak_icon);
+                bottom_cur_y += icSz.y + SCALE(2.f);
+            }
+        }
+
+        if (g_Globals.Visuals.ESPWeapon)
+        {
+            const char* wpn_name = "AK-47";
+            ImVec2 w_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize * 0.9f, FLT_MAX, -1, wpn_name);
+            ImVec2 w_pos(cx - w_sz.x * 0.5f, bottom_cur_y);
+            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, w_pos + ImVec2(1, 1), IM_COL32(0, 0, 0, 200), wpn_name);
+            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, w_pos, IM_COL32(235, 180, 80, 240), wpn_name);
+            bottom_cur_y += w_sz.y + SCALE(2.f);
+        }
+
+        if (!g_Globals.Visuals.Enable)
+        {
+            ImVec2 banner_min(p0.x + SCALE(20.f), center.y - SCALE(18.f));
+            ImVec2 banner_max(p1.x - SCALE(20.f), center.y + SCALE(18.f));
+            dl->AddRectFilled(banner_min, banner_max, IM_COL32(18, 20, 28, 230), SCALE(6.f));
+            dl->AddRect(banner_min, banner_max, IM_COL32(235, 75, 75, 200), SCALE(6.f), 0, 1.2f);
+            const char* dis_msg = "ESP IS DISABLED";
+            ImVec2 msg_sz = set->c_font.inter_medium[1]->CalcTextSizeA(set->c_font.inter_medium[1]->FontSize, FLT_MAX, -1, dis_msg);
+            dl->AddText(set->c_font.inter_medium[1], set->c_font.inter_medium[1]->FontSize, ImVec2(center.x - msg_sz.x * 0.5f, center.y - msg_sz.y * 0.5f), IM_COL32(245, 90, 90, 255), dis_msg);
+        }
+
+        dl->PopClipRect();
+
+        // Bottom quick selector chips for health bar position
+        gui->set_cursor_pos_y(gui->get_cursor_pos_y() + SCALE(10.f));
+        ImGui::TextColored(gui->get_clr(clr->c_text.text), "Healthbar Side:");
+        ImGui::SameLine();
+
+        static const char* sides[] = { "None", "Left", "Right", "Bottom", "Text" };
+        for (int s = 1; s <= 4; ++s)
+        {
+            if (s > 1) ImGui::SameLine();
+            bool active = (g_Globals.Visuals.players_healthbar == s);
+            if (active) {
+                ImGui::PushStyleColor(ImGuiCol_Button, gui->get_clr(clr->c_other_clr.accent_clr, 0.75f));
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Button, gui->get_clr(clr->c_element.layout));
+            }
+            if (ImGui::Button(sides[s], ImVec2(SCALE(54.f), SCALE(24.f))))
+            {
+                g_Globals.Visuals.players_healthbar = s;
+                g_Globals.Visuals.HealthBar = true;
+            }
+            ImGui::PopStyleColor();
+        }
+    }
+}
+
 void c_gui::render()
 {
 
@@ -444,49 +824,9 @@ void c_gui::render()
 								Beep(g_Globals.Visuals.Level ? 800 : 500, 45);
 								notify->add_notify(g_Globals.Visuals.Level ? "ESP Level On" : "ESP Level Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-						}
-						gui->end_child();
-
-						gui->begin_child("esp_distance_control");
-						{
-							if (widget->checkbox("ESP Distance", &g_Globals.Visuals.Distance))
-							{
-								Beep(g_Globals.Visuals.Distance ? 800 : 500, 45);
-								notify->add_notify(g_Globals.Visuals.Distance ? "ESP Distance On" : "ESP Distance Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
-							}
 
 							widget->separator();
 
-							widget->slider_int("Max Distance", &g_Globals.Visuals.DistanceEsp, 10, 500, 1, "%d m");
-
-							widget->separator();
-
-							if (widget->checkbox("ESP Name", &g_Globals.Visuals.Name))
-							{
-								Beep(g_Globals.Visuals.Name ? 800 : 500, 45);
-								notify->add_notify(g_Globals.Visuals.Name ? "ESP Name On" : "ESP Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
-							}
-
-							widget->separator();
-
-							const float child_width = GetContentRegionAvail().x;
-							widget->button("Refresh ESP", { child_width, SCALE(32) });
-							if (ImGui::IsItemClicked())
-							{
-								FWork::Data::Refresh();
-								notify->add_notify("ESP cache refreshed!", 3, static_cast<notify_position>(var->c_notify.notify_position));
-							}
-						}
-						gui->end_child();
-					}
-					gui->end_group();
-
-					gui->sameline();
-
-					gui->begin_group();
-					{
-						gui->begin_child("esp_lines_settings");
-						{
 							if (widget->checkbox_with_color("ESP Line", &g_Globals.Visuals.Lines, g_Globals.Visuals.LinesColor, true))
 							{
 								Beep(g_Globals.Visuals.Lines ? 800 : 500, 45);
@@ -524,7 +864,7 @@ void c_gui::render()
 						}
 						gui->end_child();
 
-						gui->begin_child("esp_health_weapons");
+						gui->begin_child("esp_elements");
 						{
 							if (widget->checkbox("ESP Health Bar", &g_Globals.Visuals.HealthBar))
 							{
@@ -547,23 +887,11 @@ void c_gui::render()
 
 							widget->separator();
 
-							static bool WeaponName = g_Globals.Visuals.ESPWeapon;
-							if (widget->checkbox("ESP Weapon Name", &WeaponName))
+							if (widget->checkbox("ESP Weapon Name", &g_Globals.Visuals.ESPWeapon))
 							{
-								if (WeaponName)
-								{
-									g_Globals.Visuals.esparmas = true;
-									g_Globals.Visuals.ESPWeapon = true;
-									Beep(800, 45);
-									notify->add_notify("ESP Weapon Name On", 3, static_cast<notify_position>(var->c_notify.notify_position));
-								}
-								else
-								{
-									g_Globals.Visuals.esparmas = false;
-									g_Globals.Visuals.ESPWeapon = false;
-									Beep(500, 45);
-									notify->add_notify("ESP Weapon Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
-								}
+								g_Globals.Visuals.esparmas = g_Globals.Visuals.ESPWeapon;
+								Beep(g_Globals.Visuals.ESPWeapon ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.ESPWeapon ? "ESP Weapon Name On" : "ESP Weapon Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
 
 							widget->separator();
@@ -573,6 +901,48 @@ void c_gui::render()
 								Beep(g_Globals.Visuals.ESPWeaponIcon ? 800 : 500, 45);
 								notify->add_notify(g_Globals.Visuals.ESPWeaponIcon ? "Gun Icons On" : "Gun Icons Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
+
+							widget->separator();
+
+							if (widget->checkbox("ESP Distance", &g_Globals.Visuals.Distance))
+							{
+								Beep(g_Globals.Visuals.Distance ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Distance ? "ESP Distance On" : "ESP Distance Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							widget->slider_int("Max Distance", &g_Globals.Visuals.DistanceEsp, 10, 500, 1, "%d m");
+
+							widget->separator();
+
+							if (widget->checkbox("ESP Name", &g_Globals.Visuals.Name))
+							{
+								Beep(g_Globals.Visuals.Name ? 800 : 500, 45);
+								notify->add_notify(g_Globals.Visuals.Name ? "ESP Name On" : "ESP Name Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							const float child_width = GetContentRegionAvail().x;
+							widget->button("Refresh ESP", { child_width, SCALE(32) });
+							if (ImGui::IsItemClicked())
+							{
+								FWork::Data::Refresh();
+								notify->add_notify("ESP cache refreshed!", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+
+					gui->sameline();
+
+					gui->begin_group();
+					{
+						gui->begin_child("esp_preview");
+						{
+							DrawEspPreview(GetContentRegionAvail().x);
 						}
 						gui->end_child();
 					}

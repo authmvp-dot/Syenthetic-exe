@@ -4,6 +4,7 @@
 #include "esp_globals.h"
 #include "esp_data.h"
 #include "offsets.h"
+#include "icon_font.h"
 
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
@@ -243,6 +244,15 @@ bool Overlay::Initialize()
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.Fonts->AddFontDefault();
+
+    ImFontConfig weaponFontCfg;
+    weaponFontCfg.MergeMode = false;
+    weaponFontCfg.OversampleH = 1;
+    weaponFontCfg.OversampleV = 1;
+    weaponFontCfg.PixelSnapH = true;
+    static const ImWchar weaponRanges[] = { 0xe000, 0xe204, 0x00 };
+    ESP::IconWeapon = io.Fonts->AddFontFromMemoryCompressedTTF(icon_compressed_data, icon_compressed_size, 40.0f, &weaponFontCfg, weaponRanges);
+    io.Fonts->Build();
 
     ImGuiStyle& style = ImGui::GetStyle();
     style.AntiAliasedLines = true;

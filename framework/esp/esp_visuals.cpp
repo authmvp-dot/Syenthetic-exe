@@ -748,8 +748,61 @@ void Players()
                     y -= gap;
                 }
 
-                // 2) Weapon Name / Icon
-                if (g_Globals.Visuals.ESPWeapon || g_Globals.Visuals.ESPWeaponIcon)
+                // 2) Weapon Icon & Weapon Name (leakproject style)
+                if (g_Globals.Visuals.ESPWeaponIcon)
+                {
+                    Namegun::Init();
+                    std::string baseIcon = Namegun::GetGunIcon(player.WeaponID);
+                    std::string fullName = Namegun::GetGunName(player.WeaponID);
+                    std::string baseName = Namegun::GetBaseName(fullName);
+                    if (baseName != fullName)
+                    {
+                        std::string suffix = fullName.substr(baseName.length());
+                        size_t p = baseIcon.find(suffix);
+                        if (p != std::string::npos)
+                            baseIcon = baseIcon.substr(0, p);
+                    }
+
+                    ImFont* iconFont = ESP::IconWeapon;
+                    bool drewIcon = false;
+                    if (iconFont && !baseIcon.empty())
+                    {
+                        float iconScale = (g_Globals.Visuals.IconScale > 0.1f) ? g_Globals.Visuals.IconScale : 0.92f;
+                        float iconSize = iconFont->FontSize * iconScale;
+                        if (iconSize < 12.0f) iconSize = 16.0f;
+                        ImVec2 iSize = iconFont->CalcTextSizeA(iconSize, FLT_MAX, 0.0f, baseIcon.c_str());
+                        y -= iSize.y;
+                        ImVec2 iPos(cx - iSize.x * 0.5f, y);
+                        ImU32 gunCol = ImColor(
+                            g_Globals.Visuals.GunColor[0],
+                            g_Globals.Visuals.GunColor[1],
+                            g_Globals.Visuals.GunColor[2],
+                            g_Globals.Visuals.GunColor[3] > 0.01f ? g_Globals.Visuals.GunColor[3] : 1.0f
+                        );
+                        // Outline drop shadow
+                        drawList->AddText(iconFont, iconSize, ImVec2(iPos.x + 1.f, iPos.y + 1.f), IM_COL32(0, 0, 0, 200), baseIcon.c_str());
+                        drawList->AddText(iconFont, iconSize, iPos, gunCol, baseIcon.c_str());
+                        y -= gap;
+                        drewIcon = true;
+                    }
+
+                    // Fallback to text name if icon font missing or icon empty and ESPWeapon not already rendering it
+                    if (!drewIcon && !fullName.empty() && !g_Globals.Visuals.ESPWeapon)
+                    {
+                        ImVec2 sz = ImGui::CalcTextSize(fullName.c_str());
+                        float pad = 4.0f;
+                        float bw = sz.x + pad * 2.0f;
+                        float bx = cx - bw * 0.5f;
+                        y -= (sz.y + 3.0f);
+
+                        drawList->AddRectFilled(ImVec2(bx, y), ImVec2(bx + bw, y + sz.y + 3.0f), IM_COL32(20, 20, 20, 180), 3.0f);
+                        drawList->AddRect(ImVec2(bx, y), ImVec2(bx + bw, y + sz.y + 3.0f), IM_COL32(192, 0, 0, 220), 3.0f);
+                        drawList->AddText(ImVec2(bx + pad, y + 1.0f), IM_COL32(255, 255, 255, 255), fullName.c_str());
+                        y -= gap;
+                    }
+                }
+
+                if (g_Globals.Visuals.ESPWeapon)
                 {
                     Namegun::Init();
                     std::string fullName = Namegun::GetGunName(player.WeaponID);

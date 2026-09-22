@@ -9,6 +9,7 @@
 #include "../../framework/esp/esp_globals.h"
 #include "../../framework/esp/name_gun.h"
 #include "../../framework/esp/overlay.hpp"
+#include "../../framework/esp/icon_font.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -531,6 +532,14 @@ int MainApp()
 
     set->c_font.name = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 18.f, &cfg, io.Fonts->GetGlyphRangesCyrillic());
 
+    ImFontConfig weaponFontCfg;
+    weaponFontCfg.MergeMode = false;
+    weaponFontCfg.OversampleH = 1;
+    weaponFontCfg.OversampleV = 1;
+    weaponFontCfg.PixelSnapH = true;
+    static const ImWchar weaponRanges[] = { 0xe000, 0xe204, 0x00 };
+    set->c_font.icon_weapon = io.Fonts->AddFontFromMemoryCompressedTTF(icon_compressed_data, icon_compressed_size, 40.f, &weaponFontCfg, weaponRanges);
+
     ImGui_ImplWin32_Init(g_hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
@@ -625,6 +634,14 @@ int MainApp()
             set->c_font.icon[6] = io.Fonts->AddFontFromMemoryTTF(icon2, sizeof(icon2), 96.f * var->c_dpi.dpi, &cfg, io.Fonts->GetGlyphRangesCyrillic());
 
             set->c_font.name = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 18.f * var->c_dpi.dpi, &cfg, io.Fonts->GetGlyphRangesCyrillic());
+
+            ImFontConfig weaponFontCfg;
+            weaponFontCfg.MergeMode = false;
+            weaponFontCfg.OversampleH = 1;
+            weaponFontCfg.OversampleV = 1;
+            weaponFontCfg.PixelSnapH = true;
+            static const ImWchar weaponRanges[] = { 0xe000, 0xe204, 0x00 };
+            set->c_font.icon_weapon = io.Fonts->AddFontFromMemoryCompressedTTF(icon_compressed_data, icon_compressed_size, 40.f * var->c_dpi.dpi, &weaponFontCfg, weaponRanges);
 
             io.Fonts->Build();
             ImGui_ImplDX11_CreateDeviceObjects();
