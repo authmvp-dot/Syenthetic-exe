@@ -229,112 +229,36 @@ namespace AuthGui {
                 gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
                 gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-            // 4. Header Animated 3D Wave Title: "Mvp Cheats Authentication"
+            // 4. Header Title: Clean, Static, Bold
             {
                 float title_center_x = (content_left + content_right) * 0.5f;
                 float title_center_y = pos.y + SCALE(36.0f);
 
-                float time = (float)ImGui::GetTime();
-                ImVec4 acc = clr->c_other_clr.accent_clr;
+                const char* part1 = "Mvp Cheats ";
+                const char* part2 = "Authentication";
 
-                const char* full_title = "Mvp Cheats Authentication";
-                const int total_chars = 25;
-                const int split_idx = 11; // Index where "Authentication" begins
+                ImFont* title_font = set->c_font.name;
+                float font_h = title_font->FontSize;
 
-                float total_w = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, full_title).x;
+                float w1 = title_font->CalcTextSizeA(font_h, FLT_MAX, -1, part1).x;
+                float w2 = title_font->CalcTextSizeA(font_h, FLT_MAX, -1, part2).x;
+                float total_w = w1 + w2;
                 float start_x = title_center_x - total_w * 0.5f;
-                float font_h = set->c_font.name->FontSize;
                 float base_y = title_center_y - font_h * 0.5f;
 
-                // Rotating Gyro Diamond Emblems
-                auto draw_rotating_emblem = [&](ImVec2 center, float angle, ImVec4 emblem_col)
-                {
-                    float r = SCALE(6.0f);
-                    float cos_a = cosf(angle);
-                    float sin_a = sinf(angle);
+                ImU32 col1 = IM_COL32(245, 245, 252, 255);
+                ImU32 col2 = gui->get_clr(clr->c_other_clr.accent_clr, 1.0f);
 
-                    ImVec2 p[4] = {
-                        { center.x + r * cos_a, center.y + r * sin_a },
-                        { center.x - r * sin_a, center.y + r * cos_a },
-                        { center.x - r * cos_a, center.y - r * sin_a },
-                        { center.x + r * sin_a, center.y - r * cos_a }
-                    };
+                // Subtle shadow for crisp definition
+                draw_list->AddText(title_font, font_h, { start_x, base_y + 1.0f }, IM_COL32(0, 0, 0, 160), part1);
+                draw_list->AddText(title_font, font_h, { start_x + w1, base_y + 1.0f }, IM_COL32(0, 0, 0, 160), part2);
 
-                    for (int k = 0; k < 4; ++k)
-                        draw_list->AddLine(p[k], p[(k + 1) % 4], gui->get_clr(emblem_col, 0.85f), 1.4f);
+                // Double-draw bold rendering
+                draw_list->AddText(title_font, font_h, { start_x + 0.6f, base_y }, col1, part1);
+                draw_list->AddText(title_font, font_h, { start_x, base_y }, col1, part1);
 
-                    float r_in = r * 0.5f;
-                    draw_list->AddLine({ center.x - r_in * cos_a, center.y - r_in * sin_a },
-                                       { center.x + r_in * cos_a, center.y + r_in * sin_a },
-                                       gui->get_clr(clr->c_other_clr.white_clr, 0.9f), 1.2f);
-
-                    draw_list->AddCircleFilled(center, SCALE(1.4f), gui->get_clr(emblem_col, 1.0f));
-                };
-
-                float rot_speed = time * 2.2f;
-                draw_rotating_emblem({ start_x - SCALE(20.0f), title_center_y }, rot_speed, acc);
-                draw_rotating_emblem({ start_x + total_w + SCALE(20.0f), title_center_y }, -rot_speed, acc);
-
-                // Letter-by-letter 3D revolving wave
-                float cur_x = start_x;
-                for (int i = 0; i < total_chars; ++i)
-                {
-                    char ch_str[2] = { full_title[i], '\0' };
-                    float ch_w = set->c_font.name->CalcTextSizeA(font_h, FLT_MAX, -1, ch_str).x;
-
-                    if (full_title[i] == ' ')
-                    {
-                        cur_x += ch_w;
-                        continue;
-                    }
-
-                    float angle = time * 3.2f - (float)i * 0.28f;
-                    float rot_y = sinf(angle) * SCALE(3.5f);
-                    float depth = cosf(angle);
-
-                    ImVec4 char_col;
-                    if (i < split_idx)
-                    {
-                        float bright = 0.78f + (depth * 0.5f + 0.5f) * 0.22f;
-                        char_col = ImVec4(bright * 0.92f, bright * 0.94f, bright, 1.0f);
-                    }
-                    else
-                    {
-                        float bright = 0.75f + (depth * 0.5f + 0.5f) * 0.35f;
-                        char_col = ImVec4(ImMin(acc.x * bright, 1.0f), ImMin(acc.y * bright, 1.0f), ImMin(acc.z * bright, 1.0f), 1.0f);
-                    }
-
-                    draw_list->AddText(set->c_font.name, font_h, { cur_x, base_y + rot_y }, gui->get_clr(char_col), ch_str);
-                    cur_x += ch_w;
-                }
-
-                // Laser Light Sweep Line
-                float beam_w = (total_w + SCALE(40.0f));
-                float beam_y = base_y + font_h + SCALE(7.0f);
-                float half_beam = beam_w * 0.5f;
-
-                draw->rect_filled_multi_color(draw_list,
-                    { title_center_x - half_beam, beam_y },
-                    { title_center_x, beam_y + SCALE(1.0f) },
-                    gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f),
-                    gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f));
-
-                draw->rect_filled_multi_color(draw_list,
-                    { title_center_x, beam_y },
-                    { title_center_x + half_beam, beam_y + SCALE(1.0f) },
-                    gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f),
-                    gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f));
-
-                float sweep_phase = fmodf(time * 0.65f, 1.0f);
-                float spark_x = (title_center_x - half_beam) + sweep_phase * (beam_w);
-                draw->add_rect_filled(draw_list,
-                    { spark_x - SCALE(10.0f), beam_y - SCALE(0.5f) },
-                    { spark_x + SCALE(10.0f), beam_y + SCALE(1.5f) },
-                    gui->get_clr(acc, 0.70f), SCALE(1.0f));
-                draw->add_rect_filled(draw_list,
-                    { spark_x - SCALE(3.0f), beam_y - SCALE(1.0f) },
-                    { spark_x + SCALE(3.0f), beam_y + SCALE(2.0f) },
-                    gui->get_clr(clr->c_other_clr.white_clr, 0.95f), SCALE(1.0f));
+                draw_list->AddText(title_font, font_h, { start_x + w1 + 0.6f, base_y }, col2, part2);
+                draw_list->AddText(title_font, font_h, { start_x + w1, base_y }, col2, part2);
             }
 
             // Top Header Close Button [X]
@@ -350,7 +274,9 @@ namespace AuthGui {
                     if (ButtonBehavior(close_rect, close_id, &chover, &cheld))
                     {
                         var->c_panel.request_exit = true;
-                        PostQuitMessage(0);
+                        if (g_hwnd) ShowWindow(g_hwnd, SW_HIDE);
+                        if (g_hHudWnd) ShowWindow(g_hHudWnd, SW_HIDE);
+                        ExitProcess(0);
                     }
                     draw->add_rect_filled(draw_list, close_rect.Min, close_rect.Max, chover ? IM_COL32(235, 65, 65, 220) : IM_COL32(26, 26, 36, 180), SCALE(5.f));
                     draw->add_rect(draw_list, close_rect.Min, close_rect.Max, chover ? IM_COL32(255, 90, 90, 255) : IM_COL32(45, 45, 65, 200), SCALE(5.f));
@@ -524,7 +450,7 @@ namespace AuthGui {
                     gui->begin_child("auth_telemetry");
                     {
                         ImGui::PushFont(set->c_font.inter_medium[1]);
-                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Authentication Telemetry");
+                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "System Status");
                         ImGui::PopFont();
                         ImGui::TextColored(ImVec4(0.6f, 0.63f, 0.72f, 1.0f), "Live server and connection status.");
 
@@ -533,7 +459,7 @@ namespace AuthGui {
                         // Live status indicator badge
                         ImVec2 sp0 = ImGui::GetCursorScreenPos();
                         float sb_w = GetContentRegionAvail().x;
-                        float sb_h = SCALE(40.f);
+                        float sb_h = SCALE(42.f);
                         ImVec2 sp1 = ImVec2(sp0.x + sb_w, sp0.y + sb_h);
                         draw->add_rect_filled(draw_list, sp0, sp1, IM_COL32(16, 17, 24, 230), SCALE(6.f));
                         draw->add_rect(draw_list, sp0, sp1, s_StatusColor, SCALE(6.f), 1.2f);
@@ -550,24 +476,6 @@ namespace AuthGui {
 
                         widget->separator();
 
-                        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.8f, 1.0f), "Gateway  : ");
-                        ImGui::SameLine();
-                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "syzoraauth.mvpcheats.online");
-
-                        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.8f, 1.0f), "Version  : ");
-                        ImGui::SameLine();
-                        ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "1.3 API REST");
-
-                        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.8f, 1.0f), "Hardware : ");
-                        ImGui::SameLine();
-                        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.5f, 1.0f), "HWID Locked (SHA-256)");
-
-                        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.8f, 1.0f), "Product  : ");
-                        ImGui::SameLine();
-                        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "MvpAimExe v1.0");
-
-                        widget->separator();
-
                         const float full_w = GetContentRegionAvail().x;
                         if (widget->button("Join Discord Community", { full_w, SCALE(35) }))
                         {
@@ -576,10 +484,12 @@ namespace AuthGui {
 
                         widget->separator();
 
-                        if (widget->button("Exit Loader", { full_w, SCALE(35) }))
+                        if (widget->button("Exit Loader", { full_w, SCALE(35) }) || ImGui::IsItemClicked())
                         {
                             var->c_panel.request_exit = true;
-                            PostQuitMessage(0);
+                            if (g_hwnd) ShowWindow(g_hwnd, SW_HIDE);
+                            if (g_hHudWnd) ShowWindow(g_hHudWnd, SW_HIDE);
+                            ExitProcess(0);
                         }
                     }
                     gui->end_child();

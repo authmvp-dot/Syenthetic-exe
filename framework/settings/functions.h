@@ -188,6 +188,8 @@ public:
 
     bool                            checkbox_with_key(std::string_view label, bool* callback, int* key, bool* mode, bool* value, bool* show_in_binds);
 
+    bool                            checkbox_with_hotkey(std::string_view label, bool* callback, int* key);
+
 	bool                            checkbox_with_color(std::string_view label, bool* callback, float col[4], bool alpha = true);
 
     bool                            slider_float(std::string_view label, float* v, float v_min, float v_max, float power = 0.1f, const char* format = "");

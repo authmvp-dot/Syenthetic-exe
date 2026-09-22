@@ -1,4 +1,4 @@
-name: Build Synthetic and Send to Discord
+name: Build MvpCheats and Send to Discord
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build Synthetic (Release x64)
+    name: Build MvpCheats (Release x64)
     runs-on: windows-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
           New-Item -ItemType Directory -Path "build_output" -Force | Out-Null
           
           # Search for the compiled binary
-          $foundExe = Get-ChildItem -Path . -Recurse -Filter "Synthetic.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $foundExe = Get-ChildItem -Path . -Recurse -Filter "MvpCheats.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $foundExe) {
             $foundExe = Get-ChildItem -Path "thirdparty/imgui/examples/example_win32_directx11" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           }
@@ -41,8 +41,8 @@ jobs:
           }
 
           Write-Host "Found compiled binary at: $($foundExe.FullName)"
-          Copy-Item -Path $foundExe.FullName -Destination "build_output/Synthetic.exe" -Force
-          Compress-Archive -Path "build_output/Synthetic.exe" -DestinationPath "build_output/Synthetic-Release-x64.zip" -Force
+          Copy-Item -Path $foundExe.FullName -Destination "build_output/MvpCheats.exe" -Force
+          Compress-Archive -Path "build_output/MvpCheats.exe" -DestinationPath "build_output/MvpCheats-Release-x64.zip" -Force
           Write-Host "Build ready for Discord delivery."
 
       - name: Send to Discord Webhook
@@ -68,8 +68,8 @@ jobs:
           $runId = "${{ github.run_id }}"
           $runUrl = "https://github.com/$repo/actions/runs/$runId"
 
-          $message = "🚀 **Synthetic x64 Build Successful!**`n" +
-                     "📦 **File:** ``Synthetic.exe`` (and ``Synthetic-Release-x64.zip``)`n" +
+          $message = "🚀 **MvpCheats x64 Build Successful!**`n" +
+                     "📦 **File:** ``MvpCheats.exe`` (and ``MvpCheats-Release-x64.zip``)`n" +
                      "📁 **Repository:** $repo`n" +
                      "📌 **Commit:** $shortSha`n" +
                      "👤 **Triggered By:** $actor`n" +
@@ -79,8 +79,8 @@ jobs:
 
           curl.exe -f -s -S `
             -F "content=$message" `
-            -F "file1=@build_output/Synthetic-Release-x64.zip" `
-            -F "file2=@build_output/Synthetic.exe" `
+            -F "file1=@build_output/MvpCheats-Release-x64.zip" `
+            -F "file2=@build_output/MvpCheats.exe" `
             "$webhook"
 
           if ($LASTEXITCODE -eq 0) {
@@ -89,6 +89,6 @@ jobs:
             Write-Warning "Sending raw .exe might have hit file filter, retrying with ZIP only..."
             curl.exe -f -s -S `
               -F "content=$message" `
-              -F "file1=@build_output/Synthetic-Release-x64.zip" `
+              -F "file1=@build_output/MvpCheats-Release-x64.zip" `
               "$webhook"
           }

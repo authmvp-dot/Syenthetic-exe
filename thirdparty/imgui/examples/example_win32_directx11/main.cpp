@@ -254,7 +254,7 @@ void UpdateHudWindow(float framerate)
         float curX = 13.0f;
         float centerY = height * 0.5f;
 
-        // [Element 1] 2x2 Purple Grid Icon + "Synthetic"
+        // [Element 1] 2x2 Purple Grid Icon + "MvpCheats"
         g.FillRectangle(&iconBrush, curX, centerY - 4.5f, 4.2f, 4.2f);
         g.FillRectangle(&iconBrush, curX + 5.6f, centerY - 4.5f, 4.2f, 4.2f);
         g.FillRectangle(&iconBrush, curX, centerY + 1.2f, 4.2f, 4.2f);
@@ -262,8 +262,8 @@ void UpdateHudWindow(float framerate)
         curX += 9.8f + 5.0f;
 
         Gdiplus::RectF bound;
-        g.MeasureString(L"Synthetic", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
-        g.DrawString(L"Synthetic", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
+        g.MeasureString(L"MvpCheats", -1, &fontBold, Gdiplus::PointF(0, 0), &bound);
+        g.DrawString(L"MvpCheats", -1, &fontBold, Gdiplus::RectF(curX, centerY - 9.0f, bound.Width + 2.0f, 18.0f), &fmt, &whiteBrush);
         curX += bound.Width + 6.0f;
 
         // Divider
@@ -454,13 +454,13 @@ int MainApp()
     int win_y = (primary_h - menu_h) / 2;
 
     // 1. Main Menu Window Class
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"SyntheticWindowClass", nullptr };
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"MvpCheatsWindowClass", nullptr };
     ::RegisterClassExW(&wc);
 
     g_hwnd = ::CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_LAYERED,
         wc.lpszClassName,
-        L"Synthetic",
+        L"MvpCheats",
         WS_POPUP,
         win_x, win_y, win_w, win_h,
         nullptr, nullptr, wc.hInstance, nullptr
@@ -482,7 +482,7 @@ int MainApp()
     SetWindowRgn(g_hwnd, hInitialRgn, TRUE);
 
     // 2. Dedicated Draggable Watermark / FPS HUD Window
-    WNDCLASSEXW wcHud = { sizeof(wcHud), CS_CLASSDC, HudWndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, LoadCursor(0, IDC_ARROW), nullptr, nullptr, L"SyntheticHudClass", nullptr };
+    WNDCLASSEXW wcHud = { sizeof(wcHud), CS_CLASSDC, HudWndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, LoadCursor(0, IDC_ARROW), nullptr, nullptr, L"MvpCheatsHudClass", nullptr };
     ::RegisterClassExW(&wcHud);
 
     int hud_w = 455;
@@ -493,7 +493,7 @@ int MainApp()
     g_hHudWnd = ::CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         wcHud.lpszClassName,
-        L"Synthetic HUD",
+        L"MvpCheats HUD",
         WS_POPUP,
         hud_x, hud_y, hud_w, hud_h,
         nullptr, nullptr, wcHud.hInstance, nullptr
@@ -586,8 +586,9 @@ int MainApp()
         int exit_k = (var->c_panel.exit_key != 0) ? var->c_panel.exit_key : VK_END;
         if ((var->c_panel.enable_exit_key && (GetAsyncKeyState(exit_k) & 1)) || var->c_panel.request_exit)
         {
-            done = true;
-            break;
+            if (g_hwnd) ShowWindow(g_hwnd, SW_HIDE);
+            if (g_hHudWnd) ShowWindow(g_hHudWnd, SW_HIDE);
+            ExitProcess(0);
         }
 
         // Update floating HUD watermark periodically
@@ -798,33 +799,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (pt.x < 0 || pt.x > menu_w || pt.y < 0 || pt.y > menu_h)
             return HTCLIENT;
 
-        // Top transparent header (with "Mvp Cheats Aimkill" title) is 100% draggable on click 1
-        if (pt.y >= 0 && pt.y <= header_h)
+        // Top transparent header (with title) is draggable on click 1 (excluding close button area on right)
+        if (pt.y >= 0 && pt.y <= header_h && pt.x < (menu_w - 50.0f * dpi) && pt.x >= sidebar_w)
             return HTCAPTION;
-
-        // Sidebar empty areas outside tabs
-        if (pt.x >= 0 && pt.x <= sidebar_w)
-        {
-            float start_tab_y = 80.0f * dpi;
-            float tab_h = 62.0f * dpi;
-            float tab_spacing = 14.0f * dpi;
-            float tab_w = 76.0f * dpi;
-            float tab_x = (sidebar_w - tab_w) * 0.5f;
-
-            bool on_tab = false;
-            for (int t = 0; t < 3; ++t)
-            {
-                float ty = start_tab_y + t * (tab_h + tab_spacing);
-                if (pt.x >= tab_x && pt.x <= tab_x + tab_w && pt.y >= ty && pt.y <= ty + tab_h)
-                {
-                    on_tab = true;
-                    break;
-                }
-            }
-
-            if (!on_tab)
-                return HTCAPTION;
-        }
 
         return HTCLIENT;
     }

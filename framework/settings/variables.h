@@ -42,7 +42,7 @@ public:
 
 	struct
 	{
-		std::vector<std::string> watermark_content = { "SYNTHETIC", "Server", "144FPS", "64PING", "12:15PM" };
+		std::vector<std::string> watermark_content = { "MvpCheats", "Server", "144FPS", "64PING", "12:15PM" };
 
 		bool watermark = true;
 		int watermark_position = 1;

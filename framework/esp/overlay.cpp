@@ -204,7 +204,7 @@ bool Overlay::Initialize()
     wc.style = CS_CLASSDC;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandleA(nullptr);
-    wc.lpszClassName = "SyntheticOverlay";
+    wc.lpszClassName = "MvpCheatsOverlay";
     RegisterClassExA(&wc);
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
@@ -213,7 +213,7 @@ bool Overlay::Initialize()
     hWnd = CreateWindowExA(
         WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
         wc.lpszClassName,
-        "Synthetic Overlay",
+        "MvpCheats Overlay",
         WS_POPUP,
         0, 0, screenWidth, screenHeight,
         nullptr, nullptr, wc.hInstance, nullptr
@@ -289,7 +289,7 @@ void Overlay::Cleanup()
         hWnd = nullptr;
     }
 
-    UnregisterClassA("SyntheticOverlay", GetModuleHandleA(nullptr));
+    UnregisterClassA("MvpCheatsOverlay", GetModuleHandleA(nullptr));
     is_initialized = false;
 }
 
@@ -312,7 +312,7 @@ void Overlay::RenderFrame()
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
 
-    ImGui::Begin("##synthetic_esp_overlay", nullptr,
+    ImGui::Begin("##mvpcheats_esp_overlay", nullptr,
         ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoInputs |
         ImGuiWindowFlags_NoBackground |

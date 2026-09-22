@@ -353,29 +353,6 @@ namespace {
         }
 
         dl->PopClipRect();
-
-        // Bottom quick selector chips for health bar position
-        gui->set_cursor_pos_y(gui->get_cursor_pos_y() + SCALE(10.f));
-        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(gui->get_clr(clr->c_text.text)), "Healthbar Side:");
-        ImGui::SameLine();
-
-        static const char* sides[] = { "None", "Left", "Right", "Bottom", "Text" };
-        for (int s = 1; s <= 4; ++s)
-        {
-            if (s > 1) ImGui::SameLine();
-            bool active = (g_Globals.Visuals.players_healthbar == s);
-            if (active) {
-                ImGui::PushStyleColor(ImGuiCol_Button, gui->get_clr(clr->c_other_clr.accent_clr, 0.75f));
-            } else {
-                ImGui::PushStyleColor(ImGuiCol_Button, gui->get_clr(clr->c_element.layout));
-            }
-            if (ImGui::Button(sides[s], ImVec2(SCALE(54.f), SCALE(24.f))))
-            {
-                g_Globals.Visuals.players_healthbar = s;
-                g_Globals.Visuals.HealthBar = true;
-            }
-            ImGui::PopStyleColor();
-        }
     }
 }
 
@@ -418,44 +395,26 @@ void c_gui::render()
 			float tab_w = SCALE(76);
 			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
-			// Native window dragging from ANY empty / transparent space or logo in the sidebar OR the top header
+			// Native window dragging from top header only (between sidebar and close button)
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || 
 			   (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsAnyItemActive() && ImGui::GetIO().MouseDownDuration[0] < 0.15f))
 			{
 				ImVec2 mouse = ImGui::GetMousePos();
-				bool in_header = (mouse.y >= pos.y && mouse.y <= pos.y + SCALE(75.0f) && mouse.x >= pos.x && mouse.x <= pos.x + size.x);
-				bool in_sidebar = (mouse.x >= pos.x && mouse.x <= pos.x + SCALE(110.0f) && mouse.y >= pos.y && mouse.y <= pos.y + size.y);
+				bool in_header = (mouse.y >= pos.y && mouse.y <= pos.y + SCALE(75.0f) && 
+				                  mouse.x >= pos.x + SCALE(110.0f) && mouse.x <= pos.x + size.x - SCALE(50.0f));
 
-				if (in_header || in_sidebar)
+				if (in_header && g_hwnd)
 				{
-					bool on_tab = false;
-					for (int t = 0; t < 4; ++t)
-					{
-						float ty = start_tab_y + t * (tab_h + tab_spacing);
-						if (mouse.x >= tab_x && mouse.x <= tab_x + tab_w &&
-						    mouse.y >= ty && mouse.y <= ty + tab_h)
-						{
-							on_tab = true;
-							break;
-						}
-					}
+					ReleaseCapture();
+					SendMessage(g_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 
-					if (!on_tab && g_hwnd)
-					{
-						ReleaseCapture();
-						SendMessage(g_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-
-						// CRITICAL: Reset ImGui mouse state immediately!
-						// When Windows finishes the modal drag loop, ImGui missed WM_LBUTTONUP.
-						// Resetting these fields prevents the "requires 2 clicks to drag again" issue.
-						ImGuiIO& io = ImGui::GetIO();
-						io.ClearInputKeys();
-						io.MouseDown[0] = false;
-						io.MouseClicked[0] = false;
-						io.MouseDoubleClicked[0] = false;
-						io.MouseDownDuration[0] = -1.0f;
-						io.MouseDownDurationPrev[0] = -1.0f;
-					}
+					ImGuiIO& io = ImGui::GetIO();
+					io.ClearInputKeys();
+					io.MouseDown[0] = false;
+					io.MouseClicked[0] = false;
+					io.MouseDoubleClicked[0] = false;
+					io.MouseDownDuration[0] = -1.0f;
+					io.MouseDownDurationPrev[0] = -1.0f;
 				}
 			}
 
@@ -495,121 +454,36 @@ void c_gui::render()
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.f), gui->get_clr(clr->c_other_clr.accent_clr, 0.5f),
 				gui->get_clr(clr->c_other_clr.accent_clr, 0.5f), gui->get_clr(clr->c_other_clr.accent_clr, 0.f));
 
-			// 2. Top Middle Panel Title: Modern 3D Revolving Rotary Wave & Dual 360° Gyro Emblems
+			// 2. Top Header Title: Clean, Static, Bold
 			{
 				float title_center_x = (content_left + content_right) * 0.5f;
 				float title_center_y = pos.y + SCALE(36.0f);
 
-				float time = (float)ImGui::GetTime();
-				ImVec4 acc = clr->c_other_clr.accent_clr;
+				const char* part1 = "Mvp Cheats ";
+				const char* part2 = "Aimkill";
 
-				const char* full_title = "Mvp Cheats Aimkill";
-				const int total_chars = 18;
-				const int split_idx = 11; // Index where "Aimkill" begins
+				ImFont* title_font = set->c_font.name;
+				float font_h = title_font->FontSize;
 
-				float total_w = set->c_font.name->CalcTextSizeA(set->c_font.name->FontSize, FLT_MAX, -1, full_title).x;
+				float w1 = title_font->CalcTextSizeA(font_h, FLT_MAX, -1, part1).x;
+				float w2 = title_font->CalcTextSizeA(font_h, FLT_MAX, -1, part2).x;
+				float total_w = w1 + w2;
 				float start_x = title_center_x - total_w * 0.5f;
-				float font_h = set->c_font.name->FontSize;
 				float base_y = title_center_y - font_h * 0.5f;
 
-				// --- Dual 360° Rotating Gyro Diamond Emblems on Left & Right ---
-				auto draw_rotating_emblem = [&](ImVec2 center, float angle, ImVec4 emblem_col)
-				{
-					float r = SCALE(6.0f);
-					float cos_a = cosf(angle);
-					float sin_a = sinf(angle);
+				ImU32 col1 = IM_COL32(245, 245, 252, 255);
+				ImU32 col2 = gui->get_clr(clr->c_other_clr.accent_clr, 1.0f);
 
-					ImVec2 p[4] = {
-						{ center.x + r * cos_a, center.y + r * sin_a },
-						{ center.x - r * sin_a, center.y + r * cos_a },
-						{ center.x - r * cos_a, center.y - r * sin_a },
-						{ center.x + r * sin_a, center.y - r * cos_a }
-					};
+				// Subtle drop shadow for crisp readability
+				draw_list->AddText(title_font, font_h, { start_x, base_y + 1.0f }, IM_COL32(0, 0, 0, 160), part1);
+				draw_list->AddText(title_font, font_h, { start_x + w1, base_y + 1.0f }, IM_COL32(0, 0, 0, 160), part2);
 
-					for (int k = 0; k < 4; ++k)
-					{
-						draw_list->AddLine(p[k], p[(k + 1) % 4], gui->get_clr(emblem_col, 0.85f), 1.4f);
-					}
+				// Double-draw with half-pixel offset for true bold appearance
+				draw_list->AddText(title_font, font_h, { start_x + 0.6f, base_y }, col1, part1);
+				draw_list->AddText(title_font, font_h, { start_x, base_y }, col1, part1);
 
-					// Inner revolving accent cross
-					float r_in = r * 0.5f;
-					draw_list->AddLine({ center.x - r_in * cos_a, center.y - r_in * sin_a },
-					                   { center.x + r_in * cos_a, center.y + r_in * sin_a },
-					                   gui->get_clr(clr->c_other_clr.white_clr, 0.9f), 1.2f);
-
-					draw_list->AddCircleFilled(center, SCALE(1.4f), gui->get_clr(emblem_col, 1.0f));
-				};
-
-				float rot_speed = time * 2.2f;
-				draw_rotating_emblem({ start_x - SCALE(20.0f), title_center_y }, rot_speed, acc);
-				draw_rotating_emblem({ start_x + total_w + SCALE(20.0f), title_center_y }, -rot_speed, acc);
-
-				// --- Letter-by-Letter 3D Revolving Rotary Wave ---
-				float cur_x = start_x;
-				for (int i = 0; i < total_chars; ++i)
-				{
-					char ch_str[2] = { full_title[i], '\0' };
-					float ch_w = set->c_font.name->CalcTextSizeA(font_h, FLT_MAX, -1, ch_str).x;
-
-					if (full_title[i] == ' ')
-					{
-						cur_x += ch_w;
-						continue;
-					}
-
-					// Staggered rotary cylinder angle
-					float angle = time * 3.2f - (float)i * 0.28f;
-					float rot_y = sinf(angle) * SCALE(3.5f);
-					float depth = cosf(angle); // 3D depth lighting factor (-1 to +1)
-
-					ImVec4 char_col;
-					if (i < split_idx)
-					{
-						// "Mvp Cheats" - Metallic Silver with dynamic rotary depth lighting
-						float bright = 0.78f + (depth * 0.5f + 0.5f) * 0.22f;
-						char_col = ImVec4(bright * 0.92f, bright * 0.94f, bright, 1.0f);
-					}
-					else
-					{
-						// "Aimkill" - Glowing accent with smooth cylindrical highlight
-						float bright = 0.75f + (depth * 0.5f + 0.5f) * 0.35f;
-						char_col = ImVec4(ImMin(acc.x * bright, 1.0f), ImMin(acc.y * bright, 1.0f), ImMin(acc.z * bright, 1.0f), 1.0f);
-					}
-
-					// Crisp, razor-sharp rendering with zero blurry ghosting
-					draw_list->AddText(set->c_font.name, font_h, { cur_x, base_y + rot_y }, gui->get_clr(char_col), ch_str);
-					cur_x += ch_w;
-				}
-
-				// --- Linear Laser Light Sweep Beneath Title ---
-				float beam_w = (total_w + SCALE(40.0f));
-				float beam_y = base_y + font_h + SCALE(7.0f);
-				float half_beam = beam_w * 0.5f;
-
-				// Subtle base guide track line
-				draw->rect_filled_multi_color(draw_list,
-					{ title_center_x - half_beam, beam_y },
-					{ title_center_x, beam_y + SCALE(1.0f) },
-					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f),
-					gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f));
-
-				draw->rect_filled_multi_color(draw_list,
-					{ title_center_x, beam_y },
-					{ title_center_x + half_beam, beam_y + SCALE(1.0f) },
-					gui->get_clr(acc, 0.35f), gui->get_clr(acc, 0.0f),
-					gui->get_clr(acc, 0.0f), gui->get_clr(acc, 0.35f));
-
-				// High-speed specular traveling light sweep
-				float sweep_phase = fmodf(time * 0.65f, 1.0f);
-				float spark_x = (title_center_x - half_beam) + sweep_phase * (beam_w);
-				draw->add_rect_filled(draw_list,
-					{ spark_x - SCALE(10.0f), beam_y - SCALE(0.5f) },
-					{ spark_x + SCALE(10.0f), beam_y + SCALE(1.5f) },
-					gui->get_clr(acc, 0.70f), SCALE(1.0f));
-				draw->add_rect_filled(draw_list,
-					{ spark_x - SCALE(3.0f), beam_y - SCALE(1.0f) },
-					{ spark_x + SCALE(3.0f), beam_y + SCALE(2.0f) },
-					gui->get_clr(clr->c_other_clr.white_clr, 0.95f), SCALE(1.0f));
+				draw_list->AddText(title_font, font_h, { start_x + w1 + 0.6f, base_y }, col2, part2);
+				draw_list->AddText(title_font, font_h, { start_x + w1, base_y }, col2, part2);
 			}
 
 			// 3. Vertical tabs stacked smoothly from top to bottom
@@ -626,8 +500,8 @@ void c_gui::render()
 					continue;
 
 				bool hovered = false, held = false;
-				bool pressed = ImGui::ButtonBehavior(tab_rect, tab_id, &hovered, &held);
-				if (pressed)
+				bool pressed = ImGui::ButtonBehavior(tab_rect, tab_id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
+				if (pressed || (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)))
 				{
 					var->c_selection.selection = i;
 				}
@@ -804,9 +678,10 @@ void c_gui::render()
 			{
 				if (var->c_selection.selection_active == 0) // Aim
 				{
+					const float full_w = GetContentRegionAvail().x;
 					gui->begin_group();
 					{
-						gui->begin_child("aimkill_core");
+						gui->begin_child("aimkill_core", ImVec2(full_w, 0));
 						{
 							if (!AimkillState::isServerConnected)
 							{
@@ -864,17 +739,9 @@ void c_gui::render()
 								Beep(AimkillState::s_shieldBypass ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_shieldBypass ? "Shield Bypass On" : "Shield Bypass Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-						}
-						gui->end_child();
-					}
-					gui->end_group();
 
-					gui->sameline();
+							widget->separator();
 
-					gui->begin_group();
-					{
-						gui->begin_child("tactical_movement");
-						{
 							if (widget->checkbox("Grenade ESP", &AimkillState::s_espGrenade))
 							{
 								if (AimkillState::isServerConnected)
@@ -905,17 +772,13 @@ void c_gui::render()
 
 							widget->separator();
 
-							if (widget->checkbox("Down Aimkill", &AimkillState::s_downAimkill))
+							if (widget->checkbox_with_hotkey("Down Aimkill", &AimkillState::s_downAimkill, &AimkillState::s_downAimkill_key))
 							{
 								if (AimkillState::isServerConnected)
 									AimkillClient::Get().SendToggle(AimkillMode::DownAimkill, AimkillState::s_downAimkill, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
 								Beep(AimkillState::s_downAimkill ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_downAimkill ? "Down Aimkill On" : "Down Aimkill Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-
-							widget->separator();
-
-							widget->keybind("Down Aimkill Key", &AimkillState::s_downAimkill_key);
 
 							widget->separator();
 
@@ -936,15 +799,70 @@ void c_gui::render()
 					const float avail_w = GetContentRegionAvail().x;
 					const float avail_h = GetContentRegionAvail().y;
 					const float col_w = (avail_w - SCALE(15.f)) * 0.5f;
+					const float card_w = col_w - SCALE(12.f);
 
-					// Left Column: Scrollable sub-container so all controls slide smoothly
+					// Left Column: Scrollable sub-container with sleek, smooth scroll slider
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-					ImGui::BeginChild("##visuals_left_scroll", ImVec2(col_w, avail_h), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
-					ImGui::PopStyleVar();
+					ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, SCALE(6.5f));
+					ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, SCALE(5.0f));
+					ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0.05f, 0.06f, 0.08f, 0.40f));
+					ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, gui->get_clr(clr->c_other_clr.accent_clr, 0.50f));
+					ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, gui->get_clr(clr->c_other_clr.accent_clr, 0.85f));
+					ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, gui->get_clr(clr->c_other_clr.accent_clr, 1.0f));
+
+					ImGui::BeginChild("##visuals_left_scroll", ImVec2(col_w, avail_h), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+
+					ImGui::PopStyleColor(4);
+					ImGui::PopStyleVar(3);
 					{
+						// Smooth kinetic scroll lerp controller
+						static float s_visuals_target_scroll = 0.0f;
+						static int s_last_vis_tab = -1;
+						ImGuiWindow* scroll_win = ImGui::GetCurrentWindow();
+
+						if (s_last_vis_tab != var->c_selection.selection_active)
+						{
+							s_visuals_target_scroll = scroll_win->Scroll.y;
+							s_last_vis_tab = var->c_selection.selection_active;
+						}
+
+						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
+						{
+							float wheel = ImGui::GetIO().MouseWheel;
+							if (wheel != 0.0f)
+							{
+								s_visuals_target_scroll -= wheel * SCALE(85.0f);
+							}
+						}
+
+						float max_scroll = scroll_win->ScrollMax.y;
+						s_visuals_target_scroll = ImClamp(s_visuals_target_scroll, 0.0f, max_scroll);
+
+						ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(scroll_win, ImGuiAxis_Y);
+						if (ImGui::GetActiveID() == scrollbar_id)
+						{
+							s_visuals_target_scroll = scroll_win->Scroll.y;
+						}
+						else
+						{
+							float current_scroll = scroll_win->Scroll.y;
+							float delta_scroll = s_visuals_target_scroll - current_scroll;
+							if (fabsf(delta_scroll) > 0.3f)
+							{
+								float dt = ImGui::GetIO().DeltaTime;
+								float lerp_factor = 1.0f - expf(-18.0f * dt);
+								float new_scroll = current_scroll + delta_scroll * lerp_factor;
+								ImGui::SetScrollY(scroll_win, new_scroll);
+							}
+							else
+							{
+								ImGui::SetScrollY(scroll_win, s_visuals_target_scroll);
+							}
+						}
+
 						gui->begin_group();
 						{
-							gui->begin_child("esp_main", ImVec2(col_w, 0));
+							gui->begin_child("esp_main", ImVec2(card_w, 0));
 							{
 							if (widget->checkbox("Enable Streamer ESP", &g_Globals.General.Capture))
 							{
@@ -1043,7 +961,7 @@ void c_gui::render()
 						}
 						gui->end_child();
 
-						gui->begin_child("esp_elements", ImVec2(col_w, 0));
+						gui->begin_child("esp_elements", ImVec2(card_w, 0));
 						{
 							if (widget->checkbox("ESP Health Bar", &g_Globals.Visuals.HealthBar))
 							{
@@ -1131,10 +1049,10 @@ void c_gui::render()
 				}
 				else if (var->c_selection.selection_active == 2) // Brutal & Look
 				{
-					// Left Column: BRUTAL Features
+					const float full_w = GetContentRegionAvail().x;
 					gui->begin_group();
 					{
-						gui->begin_child("brutal_features");
+						gui->begin_child("brutal_features", ImVec2(full_w, 0));
 						{
 							if (!AimkillState::isServerConnected)
 							{
@@ -1145,40 +1063,37 @@ void c_gui::render()
 								widget->separator();
 							}
 
-							if (widget->checkbox("Fly Up", &AimkillState::s_flyUpNew))
+							if (widget->checkbox_with_hotkey("Fly Up", &AimkillState::s_flyUpNew, &AimkillState::s_flyUpNew_key))
 							{
 								if (AimkillState::isServerConnected)
 									AimkillClient::Get().SendToggle(AimkillMode::FlyUpNew, AimkillState::s_flyUpNew, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
 								Beep(AimkillState::s_flyUpNew ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_flyUpNew ? "Fly Up On" : "Fly Up Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-							widget->keybind("Fly Up Key", &AimkillState::s_flyUpNew_key);
 
 							widget->separator();
 
-							if (widget->checkbox("Tele Mark", &AimkillState::s_teleMark))
+							if (widget->checkbox_with_hotkey("Tele Mark", &AimkillState::s_teleMark, &AimkillState::s_teleMark_key))
 							{
 								if (AimkillState::isServerConnected)
 									AimkillClient::Get().SendToggle(AimkillMode::TeleMark, AimkillState::s_teleMark, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
 								Beep(AimkillState::s_teleMark ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_teleMark ? "Tele Mark On" : "Tele Mark Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-							widget->keybind("Tele Mark Key", &AimkillState::s_teleMark_key);
 
 							widget->separator();
 
-							if (widget->checkbox("Stop Spt", &AimkillState::s_stopSpt))
+							if (widget->checkbox_with_hotkey("Stop Spt", &AimkillState::s_stopSpt, &AimkillState::s_stopSpt_key))
 							{
 								if (AimkillState::isServerConnected)
 									AimkillClient::Get().SendToggle(AimkillMode::StopSpt, AimkillState::s_stopSpt, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
 								Beep(AimkillState::s_stopSpt ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_stopSpt ? "Stop Spt On" : "Stop Spt Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-							widget->keybind("Stop Spt Key", &AimkillState::s_stopSpt_key);
 
 							widget->separator();
 
-							if (widget->checkbox("Fly Hack", &AimkillState::s_flyHackNew))
+							if (widget->checkbox_with_hotkey("Fly Hack", &AimkillState::s_flyHackNew, &AimkillState::s_flyHackNew_key))
 							{
 								if (AimkillState::isServerConnected) {
 									AimkillClient::Get().SendToggle(AimkillMode::FlyHackNew, AimkillState::s_flyHackNew, (float)AimkillState::s_flyHackHeight, AimkillState::pkgNames[AimkillState::selectedPkg]);
@@ -1187,7 +1102,6 @@ void c_gui::render()
 								Beep(AimkillState::s_flyHackNew ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_flyHackNew ? "Fly Hack On" : "Fly Hack Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-							widget->keybind("Fly Hack Key", &AimkillState::s_flyHackNew_key);
 
 							widget->separator();
 
@@ -1269,26 +1183,8 @@ void c_gui::render()
 								Beep(AimkillState::s_invisibleKill ? 800 : 500, 45);
 								if (notify) notify->add_notify(AimkillState::s_invisibleKill ? "Invisible Kill On" : "Invisible Kill Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
 							}
-						}
-						gui->end_child();
-					}
-					gui->end_group();
 
-					gui->sameline();
-
-					// Right Column: LOOK - Skin Changer
-					gui->begin_group();
-					{
-						gui->begin_child("look_changer");
-						{
-							if (!AimkillState::isServerConnected)
-							{
-								ImGui::PushFont(set->c_font.inter_medium[1]);
-								ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "Server Disconnected");
-								ImGui::PopFont();
-								ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Please connect server in Setting tab first.");
-								widget->separator();
-							}
+							widget->separator();
 
 							if (widget->checkbox("Dreamspace", &AimkillState::s_lookDreamspace))
 								AimkillState::ApplyLookToggle(&AimkillState::s_lookDreamspace, AimkillMode::LookDreamspace, "Dreamspace");
@@ -1525,10 +1421,12 @@ void c_gui::render()
 
 							gui->sameline();
 
-							widget->button("Exit Panel Now", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
-							if (ImGui::IsItemClicked())
+							if (widget->button("Exit Panel Now", { (width - style->ItemSpacing.x) / 2, SCALE(35) }) || ImGui::IsItemClicked())
 							{
 								var->c_panel.request_exit = true;
+								if (g_hwnd) ShowWindow(g_hwnd, SW_HIDE);
+								if (g_hHudWnd) ShowWindow(g_hHudWnd, SW_HIDE);
+								ExitProcess(0);
 							}
 
 							widget->separator();

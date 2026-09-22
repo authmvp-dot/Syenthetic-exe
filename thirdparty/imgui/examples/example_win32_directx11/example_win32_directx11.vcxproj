@@ -73,19 +73,19 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
-    <TargetName>Synthetic</TargetName>
+    <TargetName>MvpCheats</TargetName>
     <IncludePath>$(SolutionDir)thirdparty\imgui;$(SolutionDir)thirdparty\dxsdk\Include;$(SolutionDir)thirdparty\freetype\include;$(ProjectDir)..\..\;$(ProjectDir)..\..\..\dxsdk\Include;$(ProjectDir)..\..\..\freetype\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)thirdparty\dxsdk\Lib\x64;$(SolutionDir)thirdparty\freetype\win64;$(ProjectDir)..\..\..\dxsdk\Lib\x64;$(ProjectDir)..\..\..\freetype\win64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(ProjectDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
-    <TargetName>Synthetic</TargetName>
+    <TargetName>MvpCheats</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(ProjectDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
-    <TargetName>Synthetic</TargetName>
+    <TargetName>MvpCheats</TargetName>
     <IncludePath>$(SolutionDir)thirdparty\imgui;$(SolutionDir)thirdparty\dxsdk\Include;$(SolutionDir)thirdparty\freetype\include;$(ProjectDir)..\..\;$(ProjectDir)..\..\..\dxsdk\Include;$(ProjectDir)..\..\..\freetype\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)thirdparty\dxsdk\Lib\x64;$(SolutionDir)thirdparty\freetype\win64;$(ProjectDir)..\..\..\dxsdk\Lib\x64;$(ProjectDir)..\..\..\freetype\win64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
