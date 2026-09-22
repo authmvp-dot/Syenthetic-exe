@@ -51,16 +51,7 @@ namespace {
         dl->AddLine(ImVec2(p1.x - bpad, p1.y - bpad), ImVec2(p1.x - bpad - blen, p1.y - bpad), bcol, 1.5f);
         dl->AddLine(ImVec2(p1.x - bpad, p1.y - bpad), ImVec2(p1.x - bpad, p1.y - bpad - blen), bcol, 1.5f);
 
-        // Header watermark: pulsing Live indicator & enemy count
-        const float pulse = 0.6f + 0.4f * sinf((float)ImGui::GetTime() * 4.0f);
-        dl->AddCircleFilled(p0 + ImVec2(SCALE(16.f), SCALE(18.f)), SCALE(3.5f), IM_COL32(46, 213, 115, (int)(255 * pulse)));
-        dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.95f, p0 + ImVec2(SCALE(26.f), SCALE(11.f)), IM_COL32(200, 205, 220, 220), "PREVIEW // TARGET SIMULATION");
 
-        if (g_Globals.Visuals.ShowNearEnemyCount) {
-            const char* enc_text = "ENEMIES: 1";
-            ImVec2 enc_sz = set->c_font.inter_medium[0]->CalcTextSizeA(set->c_font.inter_medium[0]->FontSize * 0.9f, FLT_MAX, -1, enc_text);
-            dl->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.9f, ImVec2(p1.x - enc_sz.x - SCALE(14.f), p0.y + SCALE(11.f)), IM_COL32(255, 95, 95, 240), enc_text);
-        }
 
         // Keypoints for anatomical mannequin
         const float cx = center.x;
@@ -402,7 +393,7 @@ void c_gui::render()
 		static bool s_auth_transition_done = false;
 		if (!AuthGui::IsAuthenticated())
 		{
-			set->c_window.window_size = ImVec2(410, 500);
+			set->c_window.window_size = ImVec2(860, 630);
 			AuthGui::Render();
 			goto do_end_frame; // Must not skip gui->end_frame() (calls ImGui::Render)
 		}
@@ -826,10 +817,19 @@ void c_gui::render()
 				}
 				else if (var->c_selection.selection_active == 1) // Visuals
 				{
-					gui->begin_group();
+					const float avail_w = GetContentRegionAvail().x;
+					const float avail_h = GetContentRegionAvail().y;
+					const float col_w = (avail_w - SCALE(15.f)) * 0.5f;
+
+					// Left Column: Scrollable sub-container so all controls slide smoothly
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+					ImGui::BeginChild("##visuals_left_scroll", ImVec2(col_w, avail_h), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
+					ImGui::PopStyleVar();
 					{
-						gui->begin_child("esp_main");
+						gui->begin_group();
 						{
+							gui->begin_child("esp_main", ImVec2(col_w, 0));
+							{
 							if (widget->checkbox("Enable Streamer ESP", &g_Globals.General.Capture))
 							{
 								Beep(g_Globals.General.Capture ? 800 : 500, 45);
@@ -927,7 +927,7 @@ void c_gui::render()
 						}
 						gui->end_child();
 
-						gui->begin_child("esp_elements");
+						gui->begin_child("esp_elements", ImVec2(col_w, 0));
 						{
 							if (widget->checkbox("ESP Health Bar", &g_Globals.Visuals.HealthBar))
 							{
@@ -998,12 +998,13 @@ void c_gui::render()
 						gui->end_child();
 					}
 					gui->end_group();
+					ImGui::EndChild();
 
 					gui->sameline();
 
 					gui->begin_group();
 					{
-						gui->begin_child("esp_preview");
+						gui->begin_child("esp_preview", ImVec2(col_w, avail_h));
 						{
 							DrawEspPreview(GetContentRegionAvail().x);
 						}
