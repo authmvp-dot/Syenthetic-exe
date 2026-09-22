@@ -28,6 +28,9 @@
     <Filter Include="memory">
       <UniqueIdentifier>{c3d4e5f6-a1b2-4c3d-ae4f-5a6b7c8d9e0f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="aimkill">
+      <UniqueIdentifier>{d4e5f6a1-b2c3-4d4e-bf5a-6b7c8d9e0f1a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\imconfig.h">
@@ -135,6 +138,24 @@
     <ClInclude Include="..\..\..\..\framework\memory\SmartyMem.h">
       <Filter>memory</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillProtocol.hpp">
+      <Filter>aimkill</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillClient.hpp">
+      <Filter>aimkill</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillInjector.hpp">
+      <Filter>aimkill</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\aimkill_state.h">
+      <Filter>aimkill</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\skStr.h">
+      <Filter>aimkill</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\aimkill\resource_ids.h">
+      <Filter>aimkill</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp">
@@ -238,6 +259,15 @@
     </ClCompile>
     <ClCompile Include="..\..\..\..\framework\memory\memoryengine.cpp">
       <Filter>memory</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\aimkill\AimkillClient.cpp">
+      <Filter>aimkill</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\aimkill\AimkillInjector.cpp">
+      <Filter>aimkill</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\aimkill\aimkill_state.cpp">
+      <Filter>aimkill</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

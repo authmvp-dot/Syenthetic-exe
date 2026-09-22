@@ -11,6 +11,9 @@
 #include "../../framework/esp/overlay.hpp"
 #include "../../framework/esp/icon_font.h"
 #include "../../framework/auth/auth_gui.h"
+#include "../../framework/aimkill/aimkill_state.h"
+#include "../../framework/aimkill/AimkillClient.hpp"
+#include "../../framework/aimkill/AimkillInjector.hpp"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -19,6 +22,8 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "winhttp.lib")
 
 #include <windows.h>
 #include <windowsx.h>
@@ -652,6 +657,7 @@ int MainApp()
         if (AuthGui::IsAuthenticated())
         {
             FWork::Overlay::RenderFrame();
+            AimkillState::PollHotkeys();
         }
 
         ImGui_ImplDX11_NewFrame();
@@ -669,6 +675,9 @@ int MainApp()
         HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
+
+    AimkillClient::Get().Disconnect();
+    AimkillInjector::CleanupStagingFiles();
 
     FWork::Overlay::Cleanup();
     FWork::Data::StopThread();

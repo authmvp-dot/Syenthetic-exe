@@ -4,6 +4,9 @@
 #include "esp/esp_data.h"
 #include "auth/auth_gui.h"
 #include "auth/syzora_auth.hpp"
+#include "aimkill/aimkill_state.h"
+#include "aimkill/AimkillClient.hpp"
+#include "aimkill/AimkillProtocol.hpp"
 
 namespace {
     void DrawEspPreview(float child_width)
@@ -418,9 +421,9 @@ void c_gui::render()
 			const ImVec2 pos = GetWindowPos();
 			const ImVec2 size = GetWindowSize();
 
-			float start_tab_y = pos.y + SCALE(80);
-			float tab_h = SCALE(62);
-			float tab_spacing = SCALE(14);
+			float start_tab_y = pos.y + SCALE(78);
+			float tab_h = SCALE(50);
+			float tab_spacing = SCALE(10);
 			float tab_w = SCALE(76);
 			float tab_x = pos.x + (SCALE(110) - tab_w) * 0.5f;
 
@@ -435,7 +438,7 @@ void c_gui::render()
 				if (in_header || in_sidebar)
 				{
 					bool on_tab = false;
-					for (int t = 0; t < 3; ++t)
+					for (int t = 0; t < 4; ++t)
 					{
 						float ty = start_tab_y + t * (tab_h + tab_spacing);
 						if (mouse.x >= tab_x && mouse.x <= tab_x + tab_w &&
@@ -619,7 +622,7 @@ void c_gui::render()
 			}
 
 			// 3. Vertical tabs stacked smoothly from top to bottom
-			for (int i = 0; i < 3; i++)
+			for (int i = 0; i < 4; i++)
 			{
 				float cur_y = start_tab_y + i * (tab_h + tab_spacing);
 
@@ -692,48 +695,68 @@ void c_gui::render()
 
 			gui->begin_content("content", ImVec2(size.x - SCALE(130), size.y - SCALE(90)), { 15, 15 }, { 15, 15 });
 			{
-				if (var->c_selection.selection_active == 0) // Ragebot
+				if (var->c_selection.selection_active == 0) // Aim
 				{
 					gui->begin_group();
 					{
-						gui->begin_child("ragebot");
+						gui->begin_child("aimkill_core");
 						{
-							if (widget->checkbox_with_key("Enable ragebot", &var->c_ragebot.ragebot, &var->c_ragebot.rage_key, &var->c_ragebot.rage_holding, &var->c_ragebot.rage_value, &var->c_ragebot.rage_show_binds))
+							if (!AimkillState::isServerConnected)
 							{
-								notify->add_notify("You have successfully summoned a notification!", 4, static_cast<notify_position>(var->c_notify.notify_position));
-							};
+								ImGui::PushFont(set->c_font.inter_medium[1]);
+								ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "Server Disconnected");
+								ImGui::PopFont();
+								ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Please connect server in Setting tab first.");
+								widget->separator();
+							}
+
+							if (widget->checkbox("Enable All", &AimkillState::s_enableAll))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::EnableESP, AimkillState::s_enableAll, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_enableAll ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_enableAll ? "Enable All Activated" : "Enable All Deactivated", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox("Silent aimbot", &var->c_ragebot.silent_aimbot);
+							if (widget->checkbox("Aimkill", &AimkillState::s_aimkill))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::LundLeLoKill, AimkillState::s_aimkill, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_aimkill ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_aimkill ? "Aimkill Activated" : "Aimkill Deactivated", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox("Hit chance", &var->c_ragebot.hit_chance);
+							if (widget->checkbox("Auto Switch", &AimkillState::s_autoSwitch))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::AutoSwitchNew, AimkillState::s_autoSwitch, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_autoSwitch ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_autoSwitch ? "Auto Switch On" : "Auto Switch Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->slider_int("Field of view", &var->c_ragebot.fov, -180, 180, 1, "%d\xC2\xB0");
-						}
-						gui->end_child();
-
-						gui->begin_child("other");
-						{
-							widget->dropdown("Body aimbot", &var->c_other.body_selection, var->c_other.body_list, var->c_other.body_list.size());
-
-							widget->separator();
-
-							widget->dropdown("Safe points", &var->c_other.points_selection, var->c_other.points_list, var->c_other.points_list.size());
-						}
-						gui->end_child();
-
-						gui->begin_child("recoil");
-						{
-							widget->checkbox_with_key("Enable recoil", &var->c_recoil.enable_recoil, &var->c_recoil.recoil_key, &var->c_recoil.recoil_holding, &var->c_recoil.recoil_value, &var->c_recoil.recoil_show_binds);
+							if (widget->checkbox("Cover Shots", &AimkillState::s_coverShot))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::CoverShotNew, AimkillState::s_coverShot, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_coverShot ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_coverShot ? "Cover Shots On" : "Cover Shots Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->slider_int("Smoothness", &var->c_recoil.smoothness, 0, 100, 1, "%d%%");
+							if (widget->checkbox("Shield Bypass", &AimkillState::s_shieldBypass))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::ShieldBypass, AimkillState::s_shieldBypass, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_shieldBypass ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_shieldBypass ? "Shield Bypass On" : "Shield Bypass Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 						}
 						gui->end_child();
 					}
@@ -743,45 +766,59 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
-						gui->begin_child("move");
+						gui->begin_child("tactical_movement");
 						{
-							widget->slider_int("Hit chance", &var->c_move.hit_chance, 0, 100, 1, "%d%%");
+							if (widget->checkbox("Grenade ESP", &AimkillState::s_espGrenade))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::EspGrenade, AimkillState::s_espGrenade, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_espGrenade ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_espGrenade ? "Grenade ESP On" : "Grenade ESP Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->slider_int("Max misses", &var->c_move.max_misses, 0, 100, 1, "%d%%");
+							if (widget->checkbox("Speed Hack Joystick", &AimkillState::s_speedHackJoy))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::SpeedHackJoy, AimkillState::s_speedHackJoy, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_speedHackJoy ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_speedHackJoy ? "Speed Hack Joy On" : "Speed Hack Joy Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox_with_key("Static point scale", &var->c_move.point_scale, &var->c_move.point_key, &var->c_move.point_holding, &var->c_move.point_value, &var->c_move.point_show_binds);
+							if (widget->checkbox("Speed Dash", &AimkillState::s_speedDash))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::SpeedDash, AimkillState::s_speedDash, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_speedDash ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_speedDash ? "Speed Dash On" : "Speed Dash Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->checkbox("Head safety if lethal", &var->c_move.head_safety);
-						}
-						gui->end_child();
-
-						gui->begin_child("trigger");
-						{
-							widget->checkbox_with_key("Enable triggerbot", &var->c_trigger.enable_trigger, &var->c_trigger.trigger_key, &var->c_trigger.trigger_holding, &var->c_trigger.trigger_value, &var->c_trigger.trigger_show_binds);
-
-							widget->separator();
-
-							widget->checkbox("Enable trigger in smoke", &var->c_trigger.trigger_in_smoke);
+							if (widget->checkbox("Down Aimkill", &AimkillState::s_downAimkill))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::DownAimkill, AimkillState::s_downAimkill, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_downAimkill ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_downAimkill ? "Down Aimkill On" : "Down Aimkill Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 
 							widget->separator();
 
-							widget->button("Button", { GetContentRegionAvail().x, SCALE(35) });
-						}
-						gui->end_child();
-
-						gui->begin_child("settings");
-						{
-							widget->slider_float("Pitch", &var->c_settings.pitch, 0.f, 1.f, 0.1f, "%.3f");
+							widget->keybind("Down Aimkill Key", &AimkillState::s_downAimkill_key);
 
 							widget->separator();
 
-							widget->slider_float("Yaw", &var->c_settings.yaw, 0.f, 1.f, 0.1f, "%.3f");
+							if (widget->checkbox("Reset Guest", &AimkillState::s_resetGuest))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::ResetGuest, AimkillState::s_resetGuest, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_resetGuest ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_resetGuest ? "Reset Guest On" : "Reset Guest Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
 						}
 						gui->end_child();
 					}
@@ -974,26 +1011,258 @@ void c_gui::render()
 					}
 					gui->end_group();
 				}
-				else if (var->c_selection.selection_active == 2) // Settings
+				else if (var->c_selection.selection_active == 2) // Brutal & Look
+				{
+					// Left Column: BRUTAL Features
+					gui->begin_group();
+					{
+						gui->begin_child("brutal_features");
+						{
+							if (!AimkillState::isServerConnected)
+							{
+								ImGui::PushFont(set->c_font.inter_medium[1]);
+								ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "Server Disconnected");
+								ImGui::PopFont();
+								ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Please connect server in Setting tab first.");
+								widget->separator();
+							}
+
+							if (widget->checkbox("Fly Up", &AimkillState::s_flyUpNew))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::FlyUpNew, AimkillState::s_flyUpNew, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_flyUpNew ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_flyUpNew ? "Fly Up On" : "Fly Up Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+							widget->keybind("Fly Up Key", &AimkillState::s_flyUpNew_key);
+
+							widget->separator();
+
+							if (widget->checkbox("Tele Mark", &AimkillState::s_teleMark))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::TeleMark, AimkillState::s_teleMark, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_teleMark ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_teleMark ? "Tele Mark On" : "Tele Mark Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+							widget->keybind("Tele Mark Key", &AimkillState::s_teleMark_key);
+
+							widget->separator();
+
+							if (widget->checkbox("Stop Spt", &AimkillState::s_stopSpt))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::StopSpt, AimkillState::s_stopSpt, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_stopSpt ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_stopSpt ? "Stop Spt On" : "Stop Spt Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+							widget->keybind("Stop Spt Key", &AimkillState::s_stopSpt_key);
+
+							widget->separator();
+
+							if (widget->checkbox("Fly Hack", &AimkillState::s_flyHackNew))
+							{
+								if (AimkillState::isServerConnected) {
+									AimkillClient::Get().SendToggle(AimkillMode::FlyHackNew, AimkillState::s_flyHackNew, (float)AimkillState::s_flyHackHeight, AimkillState::pkgNames[AimkillState::selectedPkg]);
+									AimkillClient::Get().SendToggle(AimkillMode::FlyHackHeight, true, (float)AimkillState::s_flyHackHeight, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								}
+								Beep(AimkillState::s_flyHackNew ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_flyHackNew ? "Fly Hack On" : "Fly Hack Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+							widget->keybind("Fly Hack Key", &AimkillState::s_flyHackNew_key);
+
+							widget->separator();
+
+							static int s_lastFlyH = AimkillState::s_flyHackHeight;
+							if (widget->slider_int("Fly Hack Height", &AimkillState::s_flyHackHeight, 15, 100, 1, "%d M"))
+							{
+								if (AimkillState::isServerConnected && AimkillState::s_flyHackHeight != s_lastFlyH) {
+									AimkillClient::Get().SendToggle(AimkillMode::FlyHackHeight, true, (float)AimkillState::s_flyHackHeight, AimkillState::pkgNames[AimkillState::selectedPkg]);
+									s_lastFlyH = AimkillState::s_flyHackHeight;
+								}
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Medikit Run", &AimkillState::s_medikitRun))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::MedikitRun, AimkillState::s_medikitRun, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_medikitRun ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_medikitRun ? "Medikit Run On" : "Medikit Run Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Wall Hack", &AimkillState::s_wallHack))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::WallHack, AimkillState::s_wallHack, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_wallHack ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_wallHack ? "Wall Hack On" : "Wall Hack Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Camera Up", &AimkillState::s_cameraUp))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::CameraUp, AimkillState::s_cameraUp, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_cameraUp ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_cameraUp ? "Camera Up On" : "Camera Up Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Auto Target", &AimkillState::s_autoTarget))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::AutoTarget, AimkillState::s_autoTarget, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_autoTarget ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_autoTarget ? "Auto Target On" : "Auto Target Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Black Sky", &AimkillState::s_blackSky))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::BlackSky, AimkillState::s_blackSky, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_blackSky ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_blackSky ? "Black Sky On" : "Black Sky Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Invisible", &AimkillState::s_invisible))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::Invisible, AimkillState::s_invisible, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_invisible ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_invisible ? "Invisible On" : "Invisible Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							widget->separator();
+
+							if (widget->checkbox("Invisible Kill", &AimkillState::s_invisibleKill))
+							{
+								if (AimkillState::isServerConnected)
+									AimkillClient::Get().SendToggle(AimkillMode::InvisibleKill, AimkillState::s_invisibleKill, 0.0f, AimkillState::pkgNames[AimkillState::selectedPkg]);
+								Beep(AimkillState::s_invisibleKill ? 800 : 500, 45);
+								if (notify) notify->add_notify(AimkillState::s_invisibleKill ? "Invisible Kill On" : "Invisible Kill Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+
+					gui->sameline();
+
+					// Right Column: LOOK - Skin Changer
+					gui->begin_group();
+					{
+						gui->begin_child("look_changer");
+						{
+							if (!AimkillState::isServerConnected)
+							{
+								ImGui::PushFont(set->c_font.inter_medium[1]);
+								ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "Server Disconnected");
+								ImGui::PopFont();
+								ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Please connect server in Setting tab first.");
+								widget->separator();
+							}
+
+							if (widget->checkbox("Dreamspace", &AimkillState::s_lookDreamspace))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookDreamspace, AimkillMode::LookDreamspace, "Dreamspace");
+							widget->separator();
+
+							if (widget->checkbox("Rampage", &AimkillState::s_lookRampage))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookRampage, AimkillMode::LookRampage, "Rampage");
+							widget->separator();
+
+							if (widget->checkbox("Itachi", &AimkillState::s_lookItachi))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookItachi, AimkillMode::LookItachi, "Itachi");
+							widget->separator();
+
+							if (widget->checkbox("Midnight Ace", &AimkillState::s_lookMidnightAce))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookMidnightAce, AimkillMode::LookMidnightAce, "Midnight Ace");
+							widget->separator();
+
+							if (widget->checkbox("Aurora", &AimkillState::s_lookAurora))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookAurora, AimkillMode::LookAurora, "Aurora");
+							widget->separator();
+
+							if (widget->checkbox("Naruto's Ascent", &AimkillState::s_lookNarutoAscent))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookNarutoAscent, AimkillMode::LookNarutoAscent, "Naruto's Ascent");
+							widget->separator();
+
+							if (widget->checkbox("Last Paradox", &AimkillState::s_lookLastParadox))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookLastParadox, AimkillMode::LookLastParadox, "Last Paradox");
+							widget->separator();
+
+							if (widget->checkbox("Frostfire", &AimkillState::s_lookFrostfire))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookFrostfire, AimkillMode::LookFrostfire, "Frostfire");
+							widget->separator();
+
+							if (widget->checkbox("Scorpio", &AimkillState::s_lookScorpio))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookScorpio, AimkillMode::LookScorpio, "Scorpio");
+							widget->separator();
+
+							if (widget->checkbox("Devil Trigger", &AimkillState::s_lookDevilTrigger))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookDevilTrigger, AimkillMode::LookDevilTrigger, "Devil Trigger");
+							widget->separator();
+
+							if (widget->checkbox("Cannibal Havoc", &AimkillState::s_lookCannibalHavoc))
+								AimkillState::ApplyLookToggle(&AimkillState::s_lookCannibalHavoc, AimkillMode::LookCannibalHavoc, "Cannibal Havoc");
+						}
+						gui->end_child();
+					}
+					gui->end_group();
+				}
+				else if (var->c_selection.selection_active == 3) // Settings
 				{
 					gui->begin_group();
 					{
-						gui->begin_child("theme");
+						// 1. Aimkill Server Connect
+						gui->begin_child("server_connect");
 						{
-							static bool theme_color_enabled = true;
-							widget->checkbox_with_color("UI Theme Color", &theme_color_enabled, (float*)&clr->c_other_clr.accent_clr, false);
+							ImGui::PushFont(set->c_font.inter_medium[1]);
+							if (AimkillState::isServerConnected) {
+								ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.4f, 1.0f), "Server : Connected");
+							} else if (AimkillState::isServerConnecting) {
+								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Server : %s", AimkillState::server_btn.c_str());
+							} else {
+								ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Server : Disconnected");
+							}
+							ImGui::PopFont();
 
 							widget->separator();
 
-							widget->slider_int("UI Brightness", &var->c_glow.power, 0, 100, 1, "%d%%");
+							static std::vector<std::string> gameList = { "com.dts.freefireth", "com.dts.freefiremax" };
+							widget->dropdown("Target Game", &AimkillState::selectedPkg, gameList, 2);
 
 							widget->separator();
 
-							static char buf[128] = "Default User";
-							widget->text_field("Custom Tag", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
+							widget->text_field("127.0.0.1:5555", "ADB Address", AimkillState::deviceAddr, sizeof(AimkillState::deviceAddr), { GetContentRegionAvail().x, SCALE(35) });
+
+							widget->separator();
+
+							const float btn_w = GetContentRegionAvail().x;
+							if (!AimkillState::isServerConnecting && !AimkillState::isServerConnected) {
+								if (widget->button(AimkillState::server_btn, { btn_w, SCALE(35) }) || ImGui::IsItemClicked()) {
+									AimkillState::ConnectServerAsync();
+								}
+							} else if (AimkillState::isServerConnecting) {
+								widget->button(AimkillState::server_btn, { btn_w, SCALE(35) });
+							} else if (AimkillState::isServerConnected) {
+								if (widget->button("Disconnect Server", { btn_w, SCALE(35) }) || ImGui::IsItemClicked()) {
+									AimkillState::DisconnectServer();
+								}
+							}
 						}
 						gui->end_child();
 
+						// 2. Lib Management
 						gui->begin_child("lib_management");
 						{
 							if (widget->checkbox("Connect Lib", &var->c_settings.connect_lib))
@@ -1016,7 +1285,6 @@ void c_gui::render()
 							static bool autoRefresh = false;
 							static float lastAutoRefreshTime = 0.0f;
 
-							// Auto Refresh Handler (Every 4 Seconds)
 							if (autoRefresh && FWork::g_modeSelected.load() && !FWork::g_isConnecting.load())
 							{
 								float now = (float)ImGui::GetTime();
@@ -1029,7 +1297,6 @@ void c_gui::render()
 
 							if (!FWork::g_modeSelected.load())
 							{
-								// Show VM info
 								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "pVM     : %s", FWork::g_pvm_str.c_str());
 								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "pVCpu   : %s", FWork::g_pvcpu_str.c_str());
 								ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "CPU     : %s", FWork::g_cpu_count_str.c_str());
@@ -1062,7 +1329,6 @@ void c_gui::render()
 
 							ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-							// Refresh ESP button
 							if (widget->button("Refresh ESP", { width, SCALE(35) }) || ImGui::IsItemClicked())
 							{
 								FWork::Data::TriggerRefresh();
@@ -1071,23 +1337,21 @@ void c_gui::render()
 							ImGui::Dummy(ImVec2(0.0f, 3.0f));
 							widget->checkbox("Auto Refresh", &autoRefresh);
 
-							// Check if just connected (transition detection)
 							static bool wasConnected = false;
 							bool nowConnected = FWork::g_modeSelected.load() && !FWork::g_isConnecting.load();
 							if (nowConnected && !wasConnected)
 							{
-								// Auto-enable ESP and default features on successful connection (matching leakproject)
 								var->c_settings.connect_lib = true;
 								var->c_esp.esp = true;
-								var->c_esp.box_selection = 1; // Corner Box (ON)
-								var->c_skeleton.snaplines_selection = 1; // Bottom Snapline (ON)
-								var->c_skeleton.nickname = true; // Name (ON)
-								var->c_esp.healthbar = true; // HealthBar (ON)
-								var->c_esp.distance = true; // Distance (ON)
-								var->c_skeleton.skeleton = false; // Skeleton OFF by default
-								var->c_skeleton.weapon = false; // Weapon OFF by default
-								var->c_esp.headdot = false; // HeadDot OFF by default
-								var->c_esp.ingame_radar = false; // Radar OFF by default
+								var->c_esp.box_selection = 1;
+								var->c_skeleton.snaplines_selection = 1;
+								var->c_skeleton.nickname = true;
+								var->c_esp.healthbar = true;
+								var->c_esp.distance = true;
+								var->c_skeleton.skeleton = false;
+								var->c_skeleton.weapon = false;
+								var->c_esp.headdot = false;
+								var->c_esp.ingame_radar = false;
 
 								notify->add_notify("Memory Engine connected successfully!", 4, static_cast<notify_position>(var->c_notify.notify_position));
 							}
@@ -1105,21 +1369,36 @@ void c_gui::render()
 
 					gui->begin_group();
 					{
+						// 3. Theme
+						gui->begin_child("theme");
+						{
+							static bool theme_color_enabled = true;
+							widget->checkbox_with_color("UI Theme Color", &theme_color_enabled, (float*)&clr->c_other_clr.accent_clr, false);
+
+							widget->separator();
+
+							widget->slider_int("UI Brightness", &var->c_glow.power, 0, 100, 1, "%d%%");
+
+							widget->separator();
+
+							static char buf[128] = "Default User";
+							widget->text_field("Custom Tag", "M", buf, 128, { GetContentRegionAvail().x, SCALE(35) });
+						}
+						gui->end_child();
+
+						// 4. Panel Management
 						gui->begin_child("panel_management");
 						{
-							// 1. Hide panel toggle + keybind (default INSERT)
 							widget->checkbox_with_key("Hide panel", &var->c_panel.enable_hide_key, &var->c_panel.hide_key, &var->c_panel.hide_holding, &var->c_panel.hide_value, &var->c_panel.hide_show_binds);
 
 							widget->separator();
 
-							// 2. Exit panel toggle + keybind (default END)
 							widget->checkbox_with_key("Exit panel", &var->c_panel.enable_exit_key, &var->c_panel.exit_key, &var->c_panel.exit_holding, &var->c_panel.exit_value, &var->c_panel.exit_show_binds);
 
 							widget->separator();
 
 							const float width = GetContentRegionAvail().x;
 
-							// Quick action buttons to Hide or Exit right now
 							widget->button("Hide UI Now", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
 							if (ImGui::IsItemClicked())
 							{
@@ -1136,7 +1415,6 @@ void c_gui::render()
 
 							widget->separator();
 
-							// Theme quick actions
 							widget->button("Reset Color", { (width - style->ItemSpacing.x) / 2, SCALE(35) });
 							if (ImGui::IsItemClicked())
 							{

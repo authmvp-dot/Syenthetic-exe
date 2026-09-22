@@ -194,6 +194,12 @@
     <ClInclude Include="..\..\..\..\framework\memory\SmartyMem.h" />
     <ClInclude Include="..\..\..\..\framework\auth\auth_gui.h" />
     <ClInclude Include="..\..\..\..\framework\auth\syzora_auth.hpp" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillProtocol.hpp" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillClient.hpp" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\AimkillInjector.hpp" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\aimkill_state.h" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\skStr.h" />
+    <ClInclude Include="..\..\..\..\framework\aimkill\resource_ids.h" />
     <ClInclude Include="..\..\imconfig.h" />
     <ClInclude Include="..\..\imgui.h" />
     <ClInclude Include="..\..\imgui_internal.h" />
@@ -228,6 +234,9 @@
     <ClCompile Include="..\..\..\..\framework\memory\maps_service.cpp" />
     <ClCompile Include="..\..\..\..\framework\memory\memoryengine.cpp" />
     <ClCompile Include="..\..\..\..\framework\auth\auth_gui.cpp" />
+    <ClCompile Include="..\..\..\..\framework\aimkill\AimkillClient.cpp" />
+    <ClCompile Include="..\..\..\..\framework\aimkill\AimkillInjector.cpp" />
+    <ClCompile Include="..\..\..\..\framework\aimkill\aimkill_state.cpp" />
     <ClCompile Include="..\..\..\..\framework\gui.cc" />
     <ClCompile Include="..\..\imgui.cpp" />
     <ClCompile Include="..\..\imgui_draw.cpp" />
