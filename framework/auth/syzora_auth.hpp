@@ -64,49 +64,57 @@ namespace SyzoraAuth {
         }
 
         static std::string extract_json_field(const std::string& json, const std::string& field) {
-            std::string key = "\"" + field + "\"";
-            size_t pos = json.find(key);
-            if (pos == std::string::npos) return "";
+            try {
+                std::string key = "\"" + field + "\"";
+                size_t pos = json.find(key);
+                if (pos == std::string::npos) return "";
 
-            pos += key.length();
-            while (pos < json.length() && (json[pos] == ' ' || json[pos] == ':' || json[pos] == '\t')) {
-                pos++;
-            }
-
-            if (pos >= json.length()) return "";
-
-            if (json[pos] == '\"') {
-                pos++;
-                size_t end_pos = json.find('\"', pos);
-                if (end_pos != std::string::npos) {
-                    return json.substr(pos, end_pos - pos);
+                pos += key.length();
+                while (pos < json.length() && (json[pos] == ' ' || json[pos] == ':' || json[pos] == '\t')) {
+                    pos++;
                 }
-            } else {
-                size_t end_pos = json.find_first_of(",}\n\r ", pos);
-                if (end_pos != std::string::npos) {
-                    return json.substr(pos, end_pos - pos);
+
+                if (pos >= json.length()) return "";
+
+                if (json[pos] == '\"') {
+                    pos++;
+                    size_t end_pos = json.find('\"', pos);
+                    if (end_pos != std::string::npos) {
+                        return json.substr(pos, end_pos - pos);
+                    }
+                } else {
+                    size_t end_pos = json.find_first_of(",}\n\r ", pos);
+                    if (end_pos != std::string::npos) {
+                        return json.substr(pos, end_pos - pos);
+                    }
                 }
-            }
+            } catch (...) {}
             return "";
         }
 
         static bool extract_json_bool(const std::string& json, const std::string& field) {
-            std::string key = "\"" + field + "\"";
-            size_t pos = json.find(key);
-            if (pos == std::string::npos) return false;
+            try {
+                std::string key = "\"" + field + "\"";
+                size_t pos = json.find(key);
+                if (pos == std::string::npos) return false;
 
-            pos += key.length();
-            while (pos < json.length() && (json[pos] == ' ' || json[pos] == ':' || json[pos] == '\t')) {
-                pos++;
-            }
-            return json.substr(pos, 4) == "true";
+                pos += key.length();
+                while (pos < json.length() && (json[pos] == ' ' || json[pos] == ':' || json[pos] == '\t')) {
+                    pos++;
+                }
+                if (pos + 4 <= json.length()) {
+                    return json.substr(pos, 4) == "true";
+                }
+            } catch (...) {}
+            return false;
         }
 
         std::string req(const std::string& post_data) {
-            std::string result = "";
+            try {
+                std::string result = "";
 
-            HINTERNET hInternet = InternetOpenA("SyzoraAuth/1.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
-            if (!hInternet) return "";
+                HINTERNET hInternet = InternetOpenA("SyzoraAuth/1.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+                if (!hInternet) return "";
 
             DWORD timeoutMs = 8000;
             InternetSetOptionA(hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeoutMs, sizeof(timeoutMs));
@@ -157,161 +165,193 @@ namespace SyzoraAuth {
             InternetCloseHandle(hInternet);
             return result;
         }
+        catch (...) {
+            return "";
+        }
+    }
 
         bool init() {
-            std::string p = "type=init&ver=" + version + "&name=" + name + "&ownerid=" + ownerid + "&secret=" + secret;
-            std::string res = req(p);
+            try {
+                std::string p = "type=init&ver=" + version + "&name=" + name + "&ownerid=" + ownerid + "&secret=" + secret;
+                std::string res = req(p);
 
-            if (res.empty()) {
+                if (res.empty()) {
+                    response.success = false;
+                    response.message = "Failed to connect to authentication server!";
+                    return false;
+                }
+
+                response.success = extract_json_bool(res, "success");
+                response.message = extract_json_field(res, "message");
+                app_data.motd    = extract_json_field(res, "motd");
+
+                if (response.success) {
+                    is_initialized = true;
+                    if (response.message.empty()) response.message = "Initialized";
+                    return true;
+                }
+
+                if (response.message.empty()) response.message = "Initialization failed!";
+                return false;
+            } catch (...) {
                 response.success = false;
-                response.message = "Failed to connect to authentication server!";
+                response.message = "Auth init exception";
                 return false;
             }
-
-            response.success = extract_json_bool(res, "success");
-            response.message = extract_json_field(res, "message");
-            app_data.motd    = extract_json_field(res, "motd");
-
-            if (response.success) {
-                is_initialized = true;
-                if (response.message.empty()) response.message = "Initialized";
-                return true;
-            }
-
-            if (response.message.empty()) response.message = "Initialization failed!";
-            return false;
         }
 
         bool license(const std::string& key) {
-            if (key.empty()) {
-                response.success = false;
-                response.message = "Please enter a license key!";
-                return false;
-            }
-
-            std::string p = "type=license&key=" + key + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
-            std::string res = req(p);
-
-            if (res.empty()) {
-                response.success = false;
-                response.message = "Connection error. Please try again.";
-                return false;
-            }
-
-            response.success = extract_json_bool(res, "success");
-            response.message = extract_json_field(res, "message");
-
-            if (response.success) {
-                user_data.username = extract_json_field(res, "username");
-                if (user_data.username.empty()) user_data.username = "LicenseUser";
-                user_data.expiry   = extract_json_field(res, "expiry");
-                user_data.subscription = extract_json_field(res, "subscription");
-                is_logged_in = true;
-                if (remember_credentials) {
-                    save_credentials(key, user_data.username);
+            try {
+                if (key.empty()) {
+                    response.success = false;
+                    response.message = "Please enter a license key!";
+                    return false;
                 }
-                return true;
-            }
 
-            if (response.message.empty()) response.message = "Invalid or expired license key!";
-            return false;
+                std::string p = "type=license&key=" + key + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
+                std::string res = req(p);
+
+                if (res.empty()) {
+                    response.success = false;
+                    response.message = "Connection error. Please try again.";
+                    return false;
+                }
+
+                response.success = extract_json_bool(res, "success");
+                response.message = extract_json_field(res, "message");
+
+                if (response.success) {
+                    user_data.username = extract_json_field(res, "username");
+                    if (user_data.username.empty()) user_data.username = "LicenseUser";
+                    user_data.expiry   = extract_json_field(res, "expiry");
+                    user_data.subscription = extract_json_field(res, "subscription");
+                    is_logged_in = true;
+                    if (remember_credentials) {
+                        save_credentials(key, user_data.username);
+                    }
+                    return true;
+                }
+
+                if (response.message.empty()) response.message = "Invalid or expired license key!";
+                return false;
+            } catch (...) {
+                response.success = false;
+                response.message = "License authentication error!";
+                return false;
+            }
         }
 
         bool login(const std::string& u, const std::string& pass) {
-            if (u.empty() || pass.empty()) {
-                response.success = false;
-                response.message = "Please enter both username and password!";
-                return false;
-            }
-
-            std::string p = "type=login&username=" + u + "&pass=" + pass + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
-            std::string res = req(p);
-
-            if (res.empty()) {
-                response.success = false;
-                response.message = "Connection error. Please try again.";
-                return false;
-            }
-
-            response.success = extract_json_bool(res, "success");
-            response.message = extract_json_field(res, "message");
-
-            if (response.success) {
-                user_data.username = u;
-                user_data.expiry   = extract_json_field(res, "expiry");
-                user_data.subscription = extract_json_field(res, "subscription");
-                is_logged_in = true;
-                if (remember_credentials) {
-                    save_credentials("", u);
+            try {
+                if (u.empty() || pass.empty()) {
+                    response.success = false;
+                    response.message = "Please enter both username and password!";
+                    return false;
                 }
-                return true;
-            }
 
-            if (response.message.empty()) response.message = "Invalid username or password!";
-            return false;
+                std::string p = "type=login&username=" + u + "&pass=" + pass + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
+                std::string res = req(p);
+
+                if (res.empty()) {
+                    response.success = false;
+                    response.message = "Connection error. Please try again.";
+                    return false;
+                }
+
+                response.success = extract_json_bool(res, "success");
+                response.message = extract_json_field(res, "message");
+
+                if (response.success) {
+                    user_data.username = u;
+                    user_data.expiry   = extract_json_field(res, "expiry");
+                    user_data.subscription = extract_json_field(res, "subscription");
+                    is_logged_in = true;
+                    if (remember_credentials) {
+                        save_credentials("", u);
+                    }
+                    return true;
+                }
+
+                if (response.message.empty()) response.message = "Invalid username or password!";
+                return false;
+            } catch (...) {
+                response.success = false;
+                response.message = "Sign in error!";
+                return false;
+            }
         }
 
         bool regstr(const std::string& u, const std::string& pass, const std::string& k) {
-            if (u.empty() || pass.empty() || k.empty()) {
-                response.success = false;
-                response.message = "All fields are required to register!";
-                return false;
-            }
-
-            std::string p = "type=register&username=" + u + "&pass=" + pass + "&key=" + k + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
-            std::string res = req(p);
-
-            if (res.empty()) {
-                response.success = false;
-                response.message = "Connection error. Please try again.";
-                return false;
-            }
-
-            response.success = extract_json_bool(res, "success");
-            response.message = extract_json_field(res, "message");
-
-            if (response.success) {
-                user_data.username = u;
-                user_data.expiry   = extract_json_field(res, "expiry");
-                user_data.subscription = extract_json_field(res, "subscription");
-                is_logged_in = true;
-                if (remember_credentials) {
-                    save_credentials(k, u);
+            try {
+                if (u.empty() || pass.empty() || k.empty()) {
+                    response.success = false;
+                    response.message = "All fields are required to register!";
+                    return false;
                 }
-                return true;
-            }
 
-            if (response.message.empty()) response.message = "Registration failed!";
-            return false;
+                std::string p = "type=register&username=" + u + "&pass=" + pass + "&key=" + k + "&hwid=" + get_hwid() + "&ownerid=" + ownerid + "&name=" + name + "&secret=" + secret + "&ver=" + version;
+                std::string res = req(p);
+
+                if (res.empty()) {
+                    response.success = false;
+                    response.message = "Connection error. Please try again.";
+                    return false;
+                }
+
+                response.success = extract_json_bool(res, "success");
+                response.message = extract_json_field(res, "message");
+
+                if (response.success) {
+                    user_data.username = u;
+                    user_data.expiry   = extract_json_field(res, "expiry");
+                    user_data.subscription = extract_json_field(res, "subscription");
+                    is_logged_in = true;
+                    if (remember_credentials) {
+                        save_credentials(k, u);
+                    }
+                    return true;
+                }
+
+                if (response.message.empty()) response.message = "Registration failed!";
+                return false;
+            } catch (...) {
+                response.success = false;
+                response.message = "Registration error!";
+                return false;
+            }
         }
 
         // Credentials file save & load
         void save_credentials(const std::string& key, const std::string& user) {
-            std::ofstream f("auth_config.ini");
-            if (f.is_open()) {
-                if (!key.empty()) f << "license=" << key << "\n";
-                if (!user.empty()) f << "username=" << user << "\n";
-                f << "remember=" << (remember_credentials ? "1" : "0") << "\n";
-                f.close();
-            }
+            try {
+                std::ofstream f("auth_config.ini");
+                if (f.is_open()) {
+                    if (!key.empty()) f << "license=" << key << "\n";
+                    if (!user.empty()) f << "username=" << user << "\n";
+                    f << "remember=" << (remember_credentials ? "1" : "0") << "\n";
+                    f.close();
+                }
+            } catch (...) {}
         }
 
         void load_saved_credentials() {
-            std::ifstream f("auth_config.ini");
-            if (f.is_open()) {
-                std::string line;
-                while (std::getline(f, line)) {
-                    size_t eq = line.find('=');
-                    if (eq != std::string::npos) {
-                        std::string k = line.substr(0, eq);
-                        std::string v = line.substr(eq + 1);
-                        if (k == "license") saved_license_key = v;
-                        else if (k == "username") saved_username = v;
-                        else if (k == "remember") remember_credentials = (v == "1");
+            try {
+                std::ifstream f("auth_config.ini");
+                if (f.is_open()) {
+                    std::string line;
+                    while (std::getline(f, line)) {
+                        size_t eq = line.find('=');
+                        if (eq != std::string::npos) {
+                            std::string k = line.substr(0, eq);
+                            std::string v = line.substr(eq + 1);
+                            if (k == "license") saved_license_key = v;
+                            else if (k == "username") saved_username = v;
+                            else if (k == "remember") remember_credentials = (v == "1");
+                        }
                     }
+                    f.close();
                 }
-                f.close();
-            }
+            } catch (...) {}
         }
     };
 

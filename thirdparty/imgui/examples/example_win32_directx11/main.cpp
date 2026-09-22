@@ -554,12 +554,9 @@ int MainApp()
     if (set->c_texture.bg == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, background, sizeof(background), &img_info, thread_pump, &set->c_texture.bg, 0);
     if (set->c_texture.logo == nullptr) D3DX11CreateShaderResourceViewFromMemory(g_pd3dDevice, logo, sizeof(logo), &img_info, thread_pump, &set->c_texture.logo, 0);
 
-    Namegun::Init();
-    FWork::Data::StartThread();
-    FWork::Overlay::Initialize();
-
     bool done = false;
     DWORD lastHudUpdate = 0;
+    static bool s_gameServicesStarted = false;
 
     s_pingThreadRunning.store(true);
     s_pingThread = std::thread(PingWorkerThreadFunc);
@@ -656,6 +653,13 @@ int MainApp()
         // Render transparent ESP overlay directly over game emulator only after login
         if (AuthGui::IsAuthenticated())
         {
+            if (!s_gameServicesStarted)
+            {
+                s_gameServicesStarted = true;
+                Namegun::Init();
+                FWork::Data::StartThread();
+                FWork::Overlay::Initialize();
+            }
             FWork::Overlay::RenderFrame();
             AimkillState::PollHotkeys();
         }
@@ -679,8 +683,11 @@ int MainApp()
     AimkillClient::Get().Disconnect();
     AimkillInjector::CleanupStagingFiles();
 
-    FWork::Overlay::Cleanup();
-    FWork::Data::StopThread();
+    if (s_gameServicesStarted)
+    {
+        FWork::Overlay::Cleanup();
+        FWork::Data::StopThread();
+    }
 
     s_pingThreadRunning.store(false);
     if (s_pingThread.joinable())

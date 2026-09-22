@@ -271,7 +271,12 @@ void c_draw::add_text(ImDrawList* draw_list, const ImFont* font, float font_size
     if (font == NULL) font = draw_list->_Data->Font;
     if (font_size == 0.0f) font_size = draw_list->_Data->FontSize;
 
-    IM_ASSERT(font->ContainerAtlas->TexID == draw_list->_CmdHeader.TextureId);
+    bool texture_pushed = false;
+    if (font && font->ContainerAtlas && font->ContainerAtlas->TexID != draw_list->_CmdHeader.TextureId)
+    {
+        draw_list->PushTextureID(font->ContainerAtlas->TexID);
+        texture_pushed = true;
+    }
 
     ImVec4 clip_rect = draw_list->_CmdHeader.ClipRect;
     if (cpu_fine_clip_rect)
@@ -282,6 +287,11 @@ void c_draw::add_text(ImDrawList* draw_list, const ImFont* font, float font_size
         clip_rect.w = ImMin(clip_rect.w, cpu_fine_clip_rect->w);
     }
     font->RenderText(draw_list, font_size, pos, col, clip_rect, text_begin, text_end, wrap_width, cpu_fine_clip_rect != NULL);
+
+    if (texture_pushed)
+    {
+        draw_list->PopTextureID();
+    }
 }
 
 void c_draw::render_text(ImFont* font, ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, ImU32 color, const char* text, const char* text_display_end, const ImVec2* text_size_if_known, const ImVec2& align, const ImRect* clip_rect)

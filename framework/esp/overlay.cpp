@@ -189,7 +189,6 @@ LRESULT WINAPI Overlay::WndProc(HWND hWindow, UINT msg, WPARAM wParam, LPARAM lP
             return 0;
         break;
     case WM_DESTROY:
-        PostQuitMessage(0);
         return 0;
     }
     return DefWindowProcA(hWindow, msg, wParam, lParam);

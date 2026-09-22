@@ -35,7 +35,9 @@ namespace AuthGui {
 
         // Async Init with Syzora Auth server
         std::thread([]() {
-            SyzoraAuth::g_Auth.init();
+            try {
+                SyzoraAuth::g_Auth.init();
+            } catch (...) {}
         }).detach();
     }
 
@@ -53,15 +55,20 @@ namespace AuthGui {
         SyzoraAuth::g_Auth.remember_credentials = s_RememberMe;
 
         std::thread([key]() {
-            bool ok = SyzoraAuth::g_Auth.license(key);
-            if (ok) {
-                s_StatusMessage = "Access Granted! Welcome " + SyzoraAuth::g_Auth.user_data.username;
-                s_StatusColor = IM_COL32(46, 213, 115, 255);
-                Beep(800, 45);
-            } else {
-                s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Invalid or expired key!" : SyzoraAuth::g_Auth.response.message;
+            try {
+                bool ok = SyzoraAuth::g_Auth.license(key);
+                if (ok) {
+                    s_StatusMessage = "Access Granted! Welcome " + SyzoraAuth::g_Auth.user_data.username;
+                    s_StatusColor = IM_COL32(46, 213, 115, 255);
+                    Beep(800, 45);
+                } else {
+                    s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Invalid or expired key!" : SyzoraAuth::g_Auth.response.message;
+                    s_StatusColor = IM_COL32(235, 75, 75, 255);
+                    Beep(500, 45);
+                }
+            } catch (...) {
+                s_StatusMessage = "Authentication error occurred!";
                 s_StatusColor = IM_COL32(235, 75, 75, 255);
-                Beep(500, 45);
             }
             SyzoraAuth::g_Auth.is_busy = false;
         }).detach();
@@ -78,15 +85,20 @@ namespace AuthGui {
         SyzoraAuth::g_Auth.remember_credentials = s_RememberMe;
 
         std::thread([u, p]() {
-            bool ok = SyzoraAuth::g_Auth.login(u, p);
-            if (ok) {
-                s_StatusMessage = "Access Granted! Welcome " + SyzoraAuth::g_Auth.user_data.username;
-                s_StatusColor = IM_COL32(46, 213, 115, 255);
-                Beep(800, 45);
-            } else {
-                s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Invalid credentials!" : SyzoraAuth::g_Auth.response.message;
+            try {
+                bool ok = SyzoraAuth::g_Auth.login(u, p);
+                if (ok) {
+                    s_StatusMessage = "Access Granted! Welcome " + SyzoraAuth::g_Auth.user_data.username;
+                    s_StatusColor = IM_COL32(46, 213, 115, 255);
+                    Beep(800, 45);
+                } else {
+                    s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Invalid credentials!" : SyzoraAuth::g_Auth.response.message;
+                    s_StatusColor = IM_COL32(235, 75, 75, 255);
+                    Beep(500, 45);
+                }
+            } catch (...) {
+                s_StatusMessage = "Login error occurred!";
                 s_StatusColor = IM_COL32(235, 75, 75, 255);
-                Beep(500, 45);
             }
             SyzoraAuth::g_Auth.is_busy = false;
         }).detach();
@@ -104,15 +116,20 @@ namespace AuthGui {
         SyzoraAuth::g_Auth.remember_credentials = s_RememberMe;
 
         std::thread([u, p, k]() {
-            bool ok = SyzoraAuth::g_Auth.regstr(u, p, k);
-            if (ok) {
-                s_StatusMessage = "Account registered! Welcome " + SyzoraAuth::g_Auth.user_data.username;
-                s_StatusColor = IM_COL32(46, 213, 115, 255);
-                Beep(800, 45);
-            } else {
-                s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Registration failed!" : SyzoraAuth::g_Auth.response.message;
+            try {
+                bool ok = SyzoraAuth::g_Auth.regstr(u, p, k);
+                if (ok) {
+                    s_StatusMessage = "Account registered! Welcome " + SyzoraAuth::g_Auth.user_data.username;
+                    s_StatusColor = IM_COL32(46, 213, 115, 255);
+                    Beep(800, 45);
+                } else {
+                    s_StatusMessage = SyzoraAuth::g_Auth.response.message.empty() ? "Registration failed!" : SyzoraAuth::g_Auth.response.message;
+                    s_StatusColor = IM_COL32(235, 75, 75, 255);
+                    Beep(500, 45);
+                }
+            } catch (...) {
+                s_StatusMessage = "Registration error occurred!";
                 s_StatusColor = IM_COL32(235, 75, 75, 255);
-                Beep(500, 45);
             }
             SyzoraAuth::g_Auth.is_busy = false;
         }).detach();
@@ -332,7 +349,8 @@ namespace AuthGui {
                     bool chover = false, cheld = false;
                     if (ButtonBehavior(close_rect, close_id, &chover, &cheld))
                     {
-                        ExitProcess(0);
+                        var->c_panel.request_exit = true;
+                        PostQuitMessage(0);
                     }
                     draw->add_rect_filled(draw_list, close_rect.Min, close_rect.Max, chover ? IM_COL32(235, 65, 65, 220) : IM_COL32(26, 26, 36, 180), SCALE(5.f));
                     draw->add_rect(draw_list, close_rect.Min, close_rect.Max, chover ? IM_COL32(255, 90, 90, 255) : IM_COL32(45, 45, 65, 200), SCALE(5.f));
@@ -430,7 +448,7 @@ namespace AuthGui {
                             widget->separator();
 
                             bool is_busy = SyzoraAuth::g_Auth.is_busy.load();
-                            if (widget->button(is_busy ? "Connecting..." : "LOGIN WITH LICENSE KEY", { GetContentRegionAvail().x, SCALE(38) }) || ImGui::IsItemClicked())
+                            if (widget->button(is_busy ? "Connecting..." : "LOGIN WITH LICENSE KEY", { GetContentRegionAvail().x, SCALE(38) }))
                             {
                                 if (!is_busy) DoLicenseLogin();
                             }
@@ -457,7 +475,7 @@ namespace AuthGui {
                             widget->separator();
 
                             bool is_busy = SyzoraAuth::g_Auth.is_busy.load();
-                            if (widget->button(is_busy ? "Signing in..." : "SIGN IN", { GetContentRegionAvail().x, SCALE(38) }) || ImGui::IsItemClicked())
+                            if (widget->button(is_busy ? "Signing in..." : "SIGN IN", { GetContentRegionAvail().x, SCALE(38) }))
                             {
                                 if (!is_busy) DoUserLogin();
                             }
@@ -488,7 +506,7 @@ namespace AuthGui {
                             widget->separator();
 
                             bool is_busy = SyzoraAuth::g_Auth.is_busy.load();
-                            if (widget->button(is_busy ? "Registering..." : "REGISTER & ACTIVATE", { GetContentRegionAvail().x, SCALE(38) }) || ImGui::IsItemClicked())
+                            if (widget->button(is_busy ? "Registering..." : "REGISTER & ACTIVATE", { GetContentRegionAvail().x, SCALE(38) }))
                             {
                                 if (!is_busy) DoUserRegister();
                             }
@@ -551,16 +569,17 @@ namespace AuthGui {
                         widget->separator();
 
                         const float full_w = GetContentRegionAvail().x;
-                        if (widget->button("Join Discord Community", { full_w, SCALE(35) }) || ImGui::IsItemClicked())
+                        if (widget->button("Join Discord Community", { full_w, SCALE(35) }))
                         {
                             ShellExecuteA(NULL, "open", "https://discord.gg/BYFfkt78BC", NULL, NULL, SW_SHOWNORMAL);
                         }
 
                         widget->separator();
 
-                        if (widget->button("Exit Loader", { full_w, SCALE(35) }) || ImGui::IsItemClicked())
+                        if (widget->button("Exit Loader", { full_w, SCALE(35) }))
                         {
-                            ExitProcess(0);
+                            var->c_panel.request_exit = true;
+                            PostQuitMessage(0);
                         }
                     }
                     gui->end_child();
