@@ -401,7 +401,7 @@ void c_gui::render()
 		{
 			set->c_window.window_size = ImVec2(410, 500);
 			AuthGui::Render();
-			return;
+			goto do_end_frame; // Must not skip gui->end_frame() (calls ImGui::Render)
 		}
 		else if (!s_auth_transition_done)
 		{
@@ -1164,6 +1164,7 @@ void c_gui::render()
 		gui->end();
 
 	}
+do_end_frame:
 	gui->end_frame();
 
 }
