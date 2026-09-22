@@ -666,15 +666,62 @@ void c_gui::render()
 				draw->render_text(draw_list, set->c_font.icon[1], tab_rect.Min, tab_rect.Max - ImVec2(0, SCALE(2.f)), gui->get_clr(icon_col), var->c_selection.selection_icon[i].c_str(), 0, 0, { 0.5f, 0.48f });
 			}
 
-			// 4. Authenticated User Profile Card at bottom of sidebar
-			float profile_y = pos.y + size.y - SCALE(65.f);
-			ImRect prof_rect(ImVec2(tab_x, profile_y), ImVec2(tab_x + tab_w, profile_y + SCALE(50.f)));
-			draw->add_rect_filled(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(18, 18, 26, 220), SCALE(6.f));
-			draw->add_rect(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(32, 30, 44, 255), SCALE(6.f));
-			std::string u_name = SyzoraAuth::g_Auth.user_data.username.empty() ? "User" : SyzoraAuth::g_Auth.user_data.username;
-			if (u_name.length() > 8) u_name = u_name.substr(0, 7) + "..";
-			draw->render_text(set->c_font.inter_medium[0], draw_list, prof_rect.Min + ImVec2(SCALE(4.f), SCALE(6.f)), prof_rect.Max, IM_COL32(240, 240, 255, 255), u_name.c_str(), 0, 0, { 0.5f, 0.0f });
-			draw->render_text(set->c_font.inter_medium[0], draw_list, prof_rect.Min + ImVec2(SCALE(4.f), SCALE(26.f)), prof_rect.Max, IM_COL32(46, 213, 115, 255), "[ACTIVE]", 0, 0, { 0.5f, 0.0f });
+			// 4. Authenticated User Profile Badge at bottom of sidebar
+			float prof_w = SCALE(94.f);
+			float prof_h = SCALE(44.f);
+			float prof_x = pos.x + (SCALE(110.f) - prof_w) * 0.5f;
+			float prof_y = pos.y + size.y - SCALE(58.f);
+			ImRect prof_rect(ImVec2(prof_x, prof_y), ImVec2(prof_x + prof_w, prof_y + prof_h));
+
+			draw->add_rect_filled(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(16, 17, 24, 230), SCALE(8.f));
+			draw->add_rect(draw_list, prof_rect.Min, prof_rect.Max, IM_COL32(32, 35, 48, 255), SCALE(8.f));
+
+			// Circular avatar container on the left
+			float avatar_r = SCALE(14.f);
+			ImVec2 avatar_center = ImVec2(prof_rect.Min.x + SCALE(18.f), prof_rect.Min.y + prof_h * 0.5f);
+			draw_list->AddCircleFilled(avatar_center, avatar_r, IM_COL32(26, 28, 38, 255));
+			draw_list->AddCircle(avatar_center, avatar_r, IM_COL32(42, 45, 62, 200), 0, 1.0f);
+
+			// User silhouette vector icon inside circular avatar
+			{
+				ImVec2 clip_min = ImVec2(avatar_center.x - avatar_r + 1.0f, avatar_center.y - avatar_r + 1.0f);
+				ImVec2 clip_max = ImVec2(avatar_center.x + avatar_r - 1.0f, avatar_center.y + avatar_r - 1.0f);
+				draw_list->PushClipRect(clip_min, clip_max, true);
+
+				// Head circle
+				draw_list->AddCircleFilled(ImVec2(avatar_center.x, avatar_center.y - SCALE(3.2f)), SCALE(3.5f), IM_COL32(255, 255, 255, 245));
+
+				// Shoulders / torso
+				draw_list->AddCircleFilled(ImVec2(avatar_center.x, avatar_center.y + SCALE(8.2f)), SCALE(7.5f), IM_COL32(255, 255, 255, 245));
+
+				draw_list->PopClipRect();
+			}
+
+			// User Name & Days remaining text
+			std::string u_name = SyzoraAuth::g_Auth.user_data.username.empty() ? "N/A" : SyzoraAuth::g_Auth.user_data.username;
+			if (u_name.length() > 9) u_name = u_name.substr(0, 8) + "..";
+
+			std::string days_text = "Days: N/A";
+			if (!SyzoraAuth::g_Auth.user_data.expiry.empty())
+			{
+				try {
+					long long exp_val = std::stoll(SyzoraAuth::g_Auth.user_data.expiry);
+					time_t now = time(nullptr);
+					if (exp_val > 1500000000LL) {
+						long long diff_sec = exp_val - (long long)now;
+						long long d = diff_sec > 0 ? (diff_sec / 86400LL) : 0;
+						days_text = "Days: " + std::to_string(d);
+					} else if (exp_val > 0) {
+						days_text = "Days: " + std::to_string(exp_val);
+					}
+				} catch (...) {
+					days_text = "Days: " + SyzoraAuth::g_Auth.user_data.expiry;
+				}
+			}
+
+			float text_x = prof_rect.Min.x + SCALE(36.f);
+			draw_list->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize, ImVec2(text_x, prof_rect.Min.y + SCALE(6.f)), IM_COL32(250, 250, 255, 255), u_name.c_str());
+			draw_list->AddText(set->c_font.inter_medium[0], set->c_font.inter_medium[0]->FontSize * 0.88f, ImVec2(text_x, prof_rect.Min.y + SCALE(22.f)), IM_COL32(148, 152, 166, 255), days_text.c_str());
 
 			gui->set_cursor_pos(SCALE(115, 75));
 
