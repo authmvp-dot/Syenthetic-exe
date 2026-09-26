@@ -171,6 +171,7 @@
     <ClInclude Include="..\..\..\..\framework\shader\blur.hpp" />
     <ClInclude Include="..\..\..\..\framework\shader\pshader.hpp" />
     <ClInclude Include="..\..\..\..\framework\esp\esp_data.h" />
+    <ClInclude Include="..\..\..\..\framework\esp\jumpmax.h" />
     <ClInclude Include="..\..\..\..\framework\esp\esp_globals.h" />
     <ClInclude Include="..\..\..\..\framework\esp\esp_visuals.h" />
     <ClInclude Include="..\..\..\..\framework\esp\name_gun.h" />
@@ -226,6 +227,7 @@
     <ClCompile Include="..\..\..\..\framework\functional\textfield.cpp" />
     <ClCompile Include="..\..\..\..\framework\functional\text_editor.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\esp_data.cpp" />
+    <ClCompile Include="..\..\..\..\framework\esp\jumpmax.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\esp_visuals.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\name_gun.cpp" />
     <ClCompile Include="..\..\..\..\framework\esp\overlay.cpp" />

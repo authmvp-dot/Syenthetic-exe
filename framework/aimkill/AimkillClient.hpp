@@ -1,5 +1,6 @@
 #pragma once
 #include "AimkillProtocol.hpp"
+#include "../memory/app_config.hpp"
 #include <string>
 #include <mutex>
 #include <atomic>
@@ -20,7 +21,7 @@ public:
     bool SendRequest(const AimkillRequest& req);
 
     // Convenience toggle helper
-    bool SendToggle(int mode, bool enabled, float value = 0.0f, const std::string& gamePackage = "com.dts.freefireth");
+    bool SendToggle(int mode, bool enabled, float value = 0.0f, const std::string& gamePackage = externaltest::kDefaultGuestProcessFilter);
 
     // Retrieve latest player ESP data received from server
     bool GetLatestResponse(AimkillResponse& outResponse);

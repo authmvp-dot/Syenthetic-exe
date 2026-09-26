@@ -22,7 +22,8 @@ bool c_widget::button(std::string_view label, const ImVec2& size)
     ItemSize(rect, 0);
     if (!ItemAdd(rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     if (pressed) MarkItemEdited(id);
 
@@ -53,7 +54,8 @@ bool c_widget::tool_button(std::string_view label, std::string_view icon, const 
     ItemSize(rect, 0);
     if (!ItemAdd(rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
     
     tool_button* state = gui->anim_container(&state, id);
 

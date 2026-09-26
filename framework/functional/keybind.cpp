@@ -309,7 +309,8 @@ bool c_widget::keybind_button(std::string_view name_id, bool* pressing)
     ItemSize(rect, 0);
     if (!ItemAdd(rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     if (pressed)
          MarkItemEdited(id);
@@ -320,8 +321,8 @@ bool c_widget::keybind_button(std::string_view name_id, bool* pressing)
 
     button_state* state = gui->anim_container(&state, id);
 
-    state->background_toggle = ImLerp(state->background_toggle, !*pressing ? clr->c_other_clr.accent_clr : clr->c_element.layout, gui->fixed_speed(8.f));
-    state->background_hold = ImLerp(state->background_hold, *pressing ? clr->c_other_clr.accent_clr : clr->c_element.layout, gui->fixed_speed(8.f));
+    state->background_toggle = ImLerp(state->background_toggle, !*pressing ? clr->c_other_clr.accent_clr : clr->c_element.layout, gui->fixed_speed(25.f));
+    state->background_hold = ImLerp(state->background_hold, *pressing ? clr->c_other_clr.accent_clr : clr->c_element.layout, gui->fixed_speed(25.f));
 
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max - ImVec2((width / 2) + SCALE(5), 0), gui->get_clr(state->background_toggle), SCALE(set->c_element.rounding));
     draw->add_rect_filled(window->DrawList, rect.Min + ImVec2((width / 2) + SCALE(5), 0), rect.Max, gui->get_clr(state->background_hold), SCALE(set->c_element.rounding));

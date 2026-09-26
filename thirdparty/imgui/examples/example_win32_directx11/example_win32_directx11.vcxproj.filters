@@ -75,6 +75,9 @@
     <ClInclude Include="..\..\..\..\framework\esp\esp_data.h">
       <Filter>esp</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\framework\esp\jumpmax.h">
+      <Filter>esp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\..\..\framework\esp\esp_globals.h">
       <Filter>esp</Filter>
     </ClInclude>
@@ -237,6 +240,9 @@
       <Filter>functional</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\framework\esp\esp_data.cpp">
+      <Filter>esp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\framework\esp\jumpmax.cpp">
       <Filter>esp</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\framework\esp\esp_visuals.cpp">

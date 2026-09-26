@@ -2,11 +2,14 @@
 #include "shader/blur.hpp"
 #include "esp/esp_globals.h"
 #include "esp/esp_data.h"
+#include "esp/jumpmax.h"
+#include "esp/offsets.h"
 #include "auth/auth_gui.h"
 #include "auth/syzora_auth.hpp"
 #include "aimkill/aimkill_state.h"
 #include "aimkill/AimkillClient.hpp"
 #include "aimkill/AimkillProtocol.hpp"
+#include "memory/app_config.hpp"
 
 namespace {
     void DrawEspPreview(float child_width)
@@ -1186,6 +1189,32 @@ void c_gui::render()
 
 							widget->separator();
 
+							// ========== JUMP MAX (External via PhysicalCCT) ==========
+							if (widget->checkbox("Super Jump", &JumpMax::s_enabled))
+							{
+								if (!JumpMax::s_enabled) JumpMax::Reset();
+								Beep(JumpMax::s_enabled ? 800 : 500, 45);
+								if (notify) notify->add_notify(JumpMax::s_enabled ? "Super Jump On" : "Super Jump Off", 3, static_cast<notify_position>(var->c_notify.notify_position));
+							}
+
+							if (JumpMax::s_enabled)
+							{
+								widget->slider_float("Jump Height", &JumpMax::s_jumpMultiplier, 1.0f, 10.0f, 0.1f, "%.1fx");
+								widget->checkbox("Air Jump / Multi Jump", &JumpMax::s_doubleJump);
+								widget->checkbox("Air Control (IsJumpCanMove)", &JumpMax::s_airControl);
+								widget->checkbox("Slope Climber (89 deg)", &JumpMax::s_slopeClimb);
+								if (widget->checkbox("Low Gravity", &JumpMax::s_lowGravity))
+								{
+									if (!JumpMax::s_lowGravity) JumpMax::Reset();
+								}
+								if (JumpMax::s_lowGravity)
+								{
+									widget->slider_float("Gravity Scale", &JumpMax::s_gravityScale, 0.05f, 1.0f, 0.05f, "%.2f");
+								}
+							}
+
+							widget->separator();
+
 							if (widget->checkbox("Dreamspace", &AimkillState::s_lookDreamspace))
 								AimkillState::ApplyLookToggle(&AimkillState::s_lookDreamspace, AimkillMode::LookDreamspace, "Dreamspace");
 							widget->separator();
@@ -1252,8 +1281,15 @@ void c_gui::render()
 
 							widget->separator();
 
-							static std::vector<std::string> gameList = { "com.dts.freefireth", "com.dts.freefiremax" };
-							widget->dropdown("Target Game", &AimkillState::selectedPkg, gameList, 2);
+							static std::vector<std::string> gameList = { externaltest::kDefaultGuestProcessFilter, externaltest::kDefaultGuestProcessFilterMax };
+							if (widget->dropdown("Target Game", &AimkillState::selectedPkg, gameList, 2))
+							{
+								if (AimkillState::selectedPkg == 1) {
+									Offsets::SetGameType(Offsets::GameType::FreeFireMax);
+								} else {
+									Offsets::SetGameType(Offsets::GameType::FreeFire);
+								}
+							}
 
 							widget->separator();
 

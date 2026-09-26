@@ -19,6 +19,24 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <array>
+#include <thread>
+#include <atomic>
+
+inline void FastBeep(unsigned long freq, unsigned long duration) {
+    static std::atomic<bool> s_beepPlaying{false};
+    if (s_beepPlaying.exchange(true)) {
+        return;
+    }
+    std::thread([freq, duration]() {
+        ::Beep(freq, duration);
+        s_beepPlaying.store(false);
+    }).detach();
+}
+
+#ifdef Beep
+#undef Beep
+#endif
+#define Beep FastBeep
 
 inline ID3D11Device* g_pd3dDevice = nullptr;
 inline ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;

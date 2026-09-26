@@ -24,7 +24,8 @@ bool c_widget::selection(std::string_view label, const ImVec2& size, int selecti
     ItemSize(rect, 0);
     if (!ItemAdd(rect, id)) return false;
 
-    bool hovered, held, pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
     if (pressed) selection_variable = selection_id;
 
     selection_state* state = gui->anim_container(&state, id);

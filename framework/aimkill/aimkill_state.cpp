@@ -2,12 +2,13 @@
 #include "AimkillClient.hpp"
 #include "AimkillInjector.hpp"
 #include "AimkillProtocol.hpp"
-#include "../settings/functions.h"
-
+#include "../esp/offsets.h"
+#include "../memory/app_config.hpp"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <thread>
 #include <chrono>
+#include "../settings/functions.h"
 
 namespace AimkillState {
 
@@ -16,7 +17,7 @@ namespace AimkillState {
     std::string server_btn = "Connect Server";
     char deviceAddr[64] = "127.0.0.1:5555";
     int selectedPkg = 0;
-    const char* pkgNames[2] = { "com.dts.freefireth", "com.dts.freefiremax" };
+    const char* pkgNames[2] = { externaltest::kDefaultGuestProcessFilter, externaltest::kDefaultGuestProcessFilterMax };
 
     // AIM
     bool s_enableAll = false;
@@ -99,7 +100,7 @@ namespace AimkillState {
         isServerConnecting = true;
         server_btn = "Starting...";
         std::string dev = deviceAddr;
-        std::string pkg = pkgNames[selectedPkg];
+        std::string pkg = (Offsets::CurrentGameType == Offsets::GameType::FreeFireMax || selectedPkg == 1) ? externaltest::kDefaultGuestProcessFilterMax : externaltest::kDefaultGuestProcessFilter;
 
         std::thread([dev, pkg]() {
             try {

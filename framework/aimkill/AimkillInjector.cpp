@@ -1,6 +1,7 @@
 #include "AimkillInjector.hpp"
 #include "resource_ids.h"
 #include "skStr.h"
+#include "../memory/app_config.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -663,7 +664,15 @@ namespace AimkillInjector {
         const std::string suPath = XS("/system/xbin/bstk/su");
         const std::string sdCache = XS("/sdcard/.cache");
         const std::string remoteDir = XS("/data/local");
-        std::string pkg = packageName.empty() ? XS("com.dts.freefireth") : packageName;
+        // Auto: ffmax else ff
+        std::string pkg = externaltest::kDefaultGuestProcessFilterMax;
+        if (!CheckIfGameProcessRunning(adbQuoted, pkg)) {
+            if (CheckIfGameProcessRunning(adbQuoted, externaltest::kDefaultGuestProcessFilter)) {
+                pkg = externaltest::kDefaultGuestProcessFilter;
+            } else if (!packageName.empty()) {
+                pkg = packageName;
+            }
+        }
         std::string gameName = (pkg.find("max") != std::string::npos) ? XS("Free Fire MAX") : XS("Free Fire");
 
         report(XS("S3"));

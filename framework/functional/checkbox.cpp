@@ -31,20 +31,21 @@ bool c_widget::checkbox(std::string_view label, bool* callback)
     if (!ItemAdd(clickable_rect, id)) return false;
 
     bool hovered = false, held = false;
-    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
-
-    c_checkbox* state = gui->anim_container(&state, id);
-    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
-    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, ImGui::GetIO().DeltaTime * 8.f);
-
-    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
-    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
+    // ImGuiButtonFlags_PressedOnClick: Instant response on mouse-down (0ms click latency)
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     if (pressed)
     {
         *callback = !(*callback);
         MarkItemEdited(id);
     }
+
+    c_checkbox* state = gui->anim_container(&state, id);
+    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, gui->fixed_speed(32.f));
+    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, gui->fixed_speed(32.f));
+
+    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, gui->fixed_speed(32.f));
+    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(38.f));
 
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max, gui->get_clr(state->background), SCALE(100.f));
     draw->add_circle_filled(window->DrawList, { rect.Min.x + SCALE(state->circle_offset), rect.GetCenter().y }, SCALE(6.f), gui->get_clr(state->circle), SCALE(100.f));
@@ -85,14 +86,8 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
     if (!ItemAdd(clickable_rect, id)) return false;
 
     bool hovered = false, held = false;
-    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
-
-    c_checkbox* state = gui->anim_container(&state, id);
-    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
-    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, ImGui::GetIO().DeltaTime * 8.f);
-
-    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
-    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
+    // ImGuiButtonFlags_PressedOnClick: Instant response on mouse-down
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     ImRect gear_rect(clickable_rect.Max - ImVec2(SCALE(72), clickable_rect.GetHeight()), clickable_rect.Max - ImVec2(SCALE(46), 0));
     bool clicking_gear = gear_rect.Contains(g.IO.MousePos);
@@ -122,6 +117,13 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
         MarkItemEdited(id);
     }
 
+    c_checkbox* state = gui->anim_container(&state, id);
+    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, gui->fixed_speed(32.f));
+    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, gui->fixed_speed(32.f));
+
+    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, gui->fixed_speed(32.f));
+    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(38.f));
+
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max, gui->get_clr(state->background), SCALE(100.f));
     draw->add_circle_filled(window->DrawList, { rect.Min.x + SCALE(state->circle_offset), rect.GetCenter().y }, SCALE(6.f), gui->get_clr(state->circle), SCALE(100.f));
 
@@ -129,7 +131,7 @@ bool c_widget::checkbox_with_key(std::string_view label, bool* callback, int* ke
     draw->render_text(window->DrawList, set->c_font.icon[1], clickable_rect.Min, clickable_rect.Max - ImVec2(SCALE(60), 0), gui->get_clr(gear_col), "E", NULL, NULL, {1.0, 0.5});
     draw->render_text(window->DrawList, set->c_font.inter_medium[0], clickable_rect.Min, clickable_rect.Max, gui->get_clr(state->text_colored), label.data(), NULL, NULL, { 0.0, 0.5 });
 
-    return pressed;
+    return pressed && !clicking_gear;
 }
 
 bool c_widget::checkbox_with_hotkey(std::string_view label, bool* callback, int* key)
@@ -163,14 +165,8 @@ bool c_widget::checkbox_with_hotkey(std::string_view label, bool* callback, int*
     if (!ItemAdd(clickable_rect, id)) return false;
 
     bool hovered = false, held = false;
-    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
-
-    c_checkbox* state = gui->anim_container(&state, id);
-    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
-    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, ImGui::GetIO().DeltaTime * 8.f);
-
-    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
-    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
+    // ImGuiButtonFlags_PressedOnClick: Instant response on mouse-down
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     ImRect gear_rect(clickable_rect.Max - ImVec2(SCALE(72), clickable_rect.GetHeight()), clickable_rect.Max - ImVec2(SCALE(46), 0));
     bool clicking_gear = gear_rect.Contains(g.IO.MousePos);
@@ -194,6 +190,13 @@ bool c_widget::checkbox_with_hotkey(std::string_view label, bool* callback, int*
         *callback = !(*callback);
         MarkItemEdited(id);
     }
+
+    c_checkbox* state = gui->anim_container(&state, id);
+    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, gui->fixed_speed(32.f));
+    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, gui->fixed_speed(32.f));
+
+    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, gui->fixed_speed(32.f));
+    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(38.f));
 
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max, gui->get_clr(state->background), SCALE(100.f));
     draw->add_circle_filled(window->DrawList, { rect.Min.x + SCALE(state->circle_offset), rect.GetCenter().y }, SCALE(6.f), gui->get_clr(state->circle), SCALE(100.f));
@@ -237,14 +240,8 @@ bool c_widget::checkbox_with_color(std::string_view label, bool* callback, float
     const ImVec2 stored_pos = GetCursorScreenPos();
 
     bool hovered = false, held = false;
-    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held);
-
-    c_checkbox* state = gui->anim_container(&state, id);
-    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, ImGui::GetIO().DeltaTime * 8.f);
-    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, ImGui::GetIO().DeltaTime * 8.f);
-
-    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, ImGui::GetIO().DeltaTime * 8.f);
-    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(30.f));
+    // ImGuiButtonFlags_PressedOnClick: Instant response on mouse-down
+    bool pressed = ButtonBehavior(clickable_rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
 
     ImRect color_btn_rect(clickable_rect.Max - SCALE(82, 26), clickable_rect.Max - SCALE(58, 4));
     bool clicking_color = color_btn_rect.Contains(g.IO.MousePos);
@@ -258,6 +255,13 @@ bool c_widget::checkbox_with_color(std::string_view label, bool* callback, float
         *callback = !(*callback);
         MarkItemEdited(id);
     }
+
+    c_checkbox* state = gui->anim_container(&state, id);
+    state->text_colored = ImLerp(state->text_colored, *callback ? clr->c_text.text_active : hovered ? clr->c_text.text_hov : clr->c_text.text, gui->fixed_speed(32.f));
+    state->background = ImLerp(state->background, *callback ? clr->c_element.checkbox_active : clr->c_element.layout, gui->fixed_speed(32.f));
+
+    state->circle = ImLerp(state->circle, *callback ? clr->c_other_clr.accent_clr : clr->c_element.circle, gui->fixed_speed(32.f));
+    state->circle_offset = ImLerp(state->circle_offset, *callback ? 28.f : 12.f, gui->fixed_speed(38.f));
 
     draw->add_rect_filled(window->DrawList, rect.Min, rect.Max, gui->get_clr(state->background), SCALE(100.f));
     draw->add_circle_filled(window->DrawList, { rect.Min.x + SCALE(state->circle_offset), rect.GetCenter().y }, SCALE(6.f), gui->get_clr(state->circle), SCALE(100.f));

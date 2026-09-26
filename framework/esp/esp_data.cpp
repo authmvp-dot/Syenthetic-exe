@@ -1,6 +1,8 @@
 #include "esp_data.h"
 #include "esp_globals.h"
+#include "jumpmax.h"
 #include "offsets.h"
+#include "../aimkill/aimkill_state.h"
 #include "../memory/memory.hpp"
 #include "../math/tmatrix.hpp"
 #include "../math/world_to_screen.hpp"
@@ -223,11 +225,26 @@ bool Data::ConnectEngine()
         sprintf_s(buffer, "%d", s_memoryEngine.auto_vm().cpu_count);
         g_cpu_count_str = buffer;
 
-        // Step 3: Find target game process
+        // Step 3: Find target game process (auto-detect: FF MAX else FF Normal)
         g_connectStatus = "Finding Game...";
         externaltest::MapsService maps(s_memoryEngine);
 
-        auto taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilter, false);
+        auto taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilterMax, false);
+        if (taskOpt.has_value())
+        {
+            Offsets::SetGameType(Offsets::GameType::FreeFireMax);
+            AimkillState::selectedPkg = 1;
+        }
+        else
+        {
+            taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilter, false);
+            if (taskOpt.has_value())
+            {
+                Offsets::SetGameType(Offsets::GameType::FreeFire);
+                AimkillState::selectedPkg = 0;
+            }
+        }
+
         if (!taskOpt.has_value())
         {
             g_connectStatus = "Game Not Found";
@@ -274,8 +291,9 @@ bool Data::ConnectEngine()
         Offsets::InitBase = 0; // force auto re-scan
         g_espShutDown = false;
 
-        printf("[CONNECT] Il2Cpp = 0x%llX | maps=%zu | CR3 bind OK\n",
+        printf("[CONNECT] Il2Cpp = 0x%llX | Target = %s | maps=%zu | CR3 bind OK\n",
             (unsigned long long)Offsets::Il2Cpp,
+            Offsets::GetCurrentGameName(),
             il2cpp_maps.size());
         printf("[CONNECT] InitBase auto-scan will run on next ESP tick\n");
         fflush(stdout);
@@ -554,6 +572,9 @@ void Data::Work()
             std::unique_lock<std::shared_mutex> entitiesLock(g_Globals.EspConfig.EntitiesMutex);
             g_Globals.EspConfig.Entities = std::move(tempEntities);
         }
+
+        // JumpMax — apply super jump modifications every tick
+        JumpMax::Tick();
     }
     catch (...)
     {

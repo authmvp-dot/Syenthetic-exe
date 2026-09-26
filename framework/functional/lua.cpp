@@ -1,4 +1,4 @@
-﻿#include "../settings/functions.h"
+#include "../settings/functions.h"
 
 bool load_button(std::string_view label, bool* callback) {
     ImGuiWindow* window = GetCurrentWindow();
@@ -45,8 +45,8 @@ bool c_widget::lua_tool_button(std::string_view icon, std::string_view aid)
     ItemSize(rect, 0);
     if (!ItemAdd(rect, id)) return false;
 
-    bool hovered, held;
-    bool pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
     
     ImVec4* state = gui->anim_container(&state, id);
     *state = ImLerp(*state, hovered ? clr->c_text.text_active : clr->c_text.text_hov, gui->fixed_speed(12.f));

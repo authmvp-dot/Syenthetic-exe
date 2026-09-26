@@ -14,7 +14,8 @@ bool active_button(std::string_view label, int selection_id, int& selection_vari
     if (!ItemAdd(rect, id)) return false;
 
     const bool selected = selection_id == selection_variable;
-    bool hovered, held, pressed = ButtonBehavior(rect, id, &hovered, &held);
+    bool hovered = false, held = false;
+    bool pressed = ButtonBehavior(rect, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
     if (pressed) selection_variable = selection_id;
 
     float* state = gui->anim_container(&state, id);
