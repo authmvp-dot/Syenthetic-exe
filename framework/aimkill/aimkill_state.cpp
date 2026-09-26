@@ -100,7 +100,9 @@ namespace AimkillState {
         isServerConnecting = true;
         server_btn = "Starting...";
         std::string dev = deviceAddr;
-        std::string pkg = (Offsets::CurrentGameType == Offsets::GameType::FreeFireMax || selectedPkg == 1) ? externaltest::kDefaultGuestProcessFilterMax : externaltest::kDefaultGuestProcessFilter;
+        const bool isMax = (selectedPkg == 1);
+        std::string pkg = isMax ? externaltest::kDefaultGuestProcessFilterMax : externaltest::kDefaultGuestProcessFilter;
+        Offsets::SetGameType(isMax ? Offsets::GameType::FreeFireMax : Offsets::GameType::FreeFire);
 
         std::thread([dev, pkg]() {
             try {

@@ -664,15 +664,8 @@ namespace AimkillInjector {
         const std::string suPath = XS("/system/xbin/bstk/su");
         const std::string sdCache = XS("/sdcard/.cache");
         const std::string remoteDir = XS("/data/local");
-        // Auto: ffmax else ff
-        std::string pkg = externaltest::kDefaultGuestProcessFilterMax;
-        if (!CheckIfGameProcessRunning(adbQuoted, pkg)) {
-            if (CheckIfGameProcessRunning(adbQuoted, externaltest::kDefaultGuestProcessFilter)) {
-                pkg = externaltest::kDefaultGuestProcessFilter;
-            } else if (!packageName.empty()) {
-                pkg = packageName;
-            }
-        }
+        // Manual: Use user's selected packageName directly from dropdown
+        std::string pkg = packageName.empty() ? externaltest::kDefaultGuestProcessFilter : packageName;
         std::string gameName = (pkg.find("max") != std::string::npos) ? XS("Free Fire MAX") : XS("Free Fire");
 
         report(XS("S3"));

@@ -273,4 +273,11 @@ public:
     static inline const char* GetCurrentGameName() {
         return (CurrentGameType == GameType::FreeFireMax) ? "Free Fire MAX" : "Free Fire";
     }
+
+    struct Initializer {
+        Initializer() {
+            SetGameType(GameType::FreeFire);
+        }
+    };
+    static inline Initializer _init{};
 };

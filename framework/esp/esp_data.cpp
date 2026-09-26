@@ -225,29 +225,21 @@ bool Data::ConnectEngine()
         sprintf_s(buffer, "%d", s_memoryEngine.auto_vm().cpu_count);
         g_cpu_count_str = buffer;
 
-        // Step 3: Find target game process (auto-detect: FF MAX else FF Normal)
-        g_connectStatus = "Finding Game...";
+        // Step 3: Find target game process (manual selection strictly from Target Game dropdown)
+        const bool isMax = (AimkillState::selectedPkg == 1);
+        const char* targetFilter = isMax
+            ? externaltest::kDefaultGuestProcessFilterMax
+            : externaltest::kDefaultGuestProcessFilter;
+
+        Offsets::SetGameType(isMax ? Offsets::GameType::FreeFireMax : Offsets::GameType::FreeFire);
+
+        g_connectStatus = isMax ? "Finding FF MAX..." : "Finding Free Fire...";
         externaltest::MapsService maps(s_memoryEngine);
 
-        auto taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilterMax, false);
-        if (taskOpt.has_value())
-        {
-            Offsets::SetGameType(Offsets::GameType::FreeFireMax);
-            AimkillState::selectedPkg = 1;
-        }
-        else
-        {
-            taskOpt = maps.FindTargetTask(externaltest::kDefaultGuestProcessFilter, false);
-            if (taskOpt.has_value())
-            {
-                Offsets::SetGameType(Offsets::GameType::FreeFire);
-                AimkillState::selectedPkg = 0;
-            }
-        }
-
+        auto taskOpt = maps.FindTargetTask(targetFilter, false);
         if (!taskOpt.has_value())
         {
-            g_connectStatus = "Game Not Found";
+            g_connectStatus = isMax ? "FF MAX Not Found" : "Free Fire Not Found";
             g_Globals.EspConfig.Connected = false;
             return false;
         }
